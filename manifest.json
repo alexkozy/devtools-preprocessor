@@ -1,0 +1,14 @@
+{
+  "name": "Chrome Preprocessor Example",
+  "version": "0.1",
+  "description": "Simple profiler and code coverage example",
+  "devtools_page": "chrome-preprocessor.html",
+  "manifest_version": 2,
+  "content_security_policy": "script-src 'self'; object-src 'self' ; frame-src 'self' data:",
+  "web_accessible_resources":
+    [
+      "*",
+      "Panel/jquery.js",
+      "libs/*"
+    ]
+}

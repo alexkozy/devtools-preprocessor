@@ -1,0 +1,44 @@
+<html>
+<head>
+  <link rel='stylesheet' href='PreprocessorPanel.css'>
+
+  <link type="text/css" rel="stylesheet" href="trace-viewer.css">
+  <script src="trace-viewer.js"></script>
+
+  <link href="bootstrap/css/bootstrap.min.css" rel="stylesheet" media="screen">
+  <script src="jquery.js"></script>
+  <script src="bootstrap/js/bootstrap.min.js"></script>
+
+  <script src="codemirror/lib/codemirror.js"></script>
+  <link rel="stylesheet" href="codemirror/lib/codemirror.css">
+  <script src="codemirror/mode/javascript/javascript.js"></script>
+
+  <style>
+  .hits {width: 3.2em;}
+  .CodeMirror {border: 1px solid #aaa; height: 600px;}
+  </style>
+  
+  <style type="text/css">
+		body, html {
+		  font-family: sans-serif;
+		}
+    #loading { display: none;}
+  </style>
+</head>
+<body>
+  <div class="btn-group">
+    <button class="reload-coverage-button">Reload page with Coverage Analysis</button>
+    <button class="refresh-button">Refresh</button>
+    <button class="switch-button">Enable</button>
+    <button class="clear-button">Clear</button>
+  </div>
+
+  <div class="tabbable">
+    <ul class="nav nav-tabs" id="tabs_list"></ul>
+    <div class="tab-content" id="tabs_content"></div>
+  </div>
+
+  <script src="InspectedWindowLoadMonitor.js"></script>
+  <script src="PreprocessorPanel.js"></script>
+</body>
+</html>
