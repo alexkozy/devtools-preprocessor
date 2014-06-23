@@ -1,85 +1,113 @@
+// TODO: move functions to different files
 (function() {
 
-function preprocessorCoverage(source, url, listenerName) {
-	if (preprocessorCoverage.esprima === undefined) {
+// This function is converted to a string and becomes the preprocessor
+function preprocessor(source, url, listenerName) {
+	var start_time = (new Date()).getTime();
+
+	if (preprocessor.esprima === undefined) {
 		__PREFIX__;
 	} else {
-		esprima = preprocessorCoverage.esprima;
-		estraverse = preprocessorCoverage.estraverse;
-		escodegen = preprocessorCoverage.escodegen;
+		esprima = preprocessor.esprima;
+		estraverse = preprocessor.estraverse;
+		escodegen = preprocessor.escodegen;
 	}
-	preprocessorCoverage.esprima = esprima;
-	preprocessorCoverage.estraverse = estraverse;
-	preprocessorCoverage.escodegen = escodegen;
-
-	if (preprocessorCoverage.last_location_id === undefined)
-		preprocessorCoverage.last_location_id = -1;
-
-	String.prototype.endsWith = function(suffix) {
-	    return this.indexOf(suffix, this.length - suffix.length) !== -1;
-	};
-	function makeInstrument(id) {
-		var instrument_source = 'window.top.__profileEnable && window.top.__hits[0]++';
-		var instrument = esprima.parse(instrument_source).body[0].expression;
-		var id_property = instrument.right.argument.property;
-		id_property.raw = id.toString();
-		id_property.value = id;
-		return instrument;
-	}
-	function addSourceUrl(location) {
-		location.url = url;
-		return location;
-	}
-
+	preprocessor.esprima = esprima;
+	preprocessor.estraverse = estraverse;
+	preprocessor.escodegen = escodegen;
+	if (preprocessor.functionID === undefined) preprocessor.functionID = 0;
+	var idToFunctionName = {};
 	var idToLocation = {};
-	var ast = esprima.parse(source, {loc:true});
 
-	ast = estraverse.replace(ast, {
-		leave: function (node, parent) {
-			if (node.type === "ReturnStatement" && node.argument === null) {
-			 	++preprocessorCoverage.last_location_id;
-			 	idToLocation[preprocessorCoverage.last_location_id] = addSourceUrl(node.loc);	
-			 	return { 
-			 		type: "ReturnStatement", argument: { 
-			 			type: "SequenceExpression", expressions: [
-			 				makeInstrument(preprocessorCoverage.last_location_id), 
-			 				{ type: "Identifier", name: "undefined" }
-			 			]
-			 		}
-			 	};			
-			}
-			if (node.type === "EmptyStatement") {
-				++preprocessorCoverage.last_location_id;
-				idToLocation[preprocessorCoverage.last_location_id] = addSourceUrl(node.loc);			
-				return {type: "ExpressionStatement", expression: makeInstrument(preprocessorCoverage.last_location_id), loc: node.loc };			
-			}
-			if (node.type === "Literal" && !parent.type.endsWith("Expression") && !(parent.type === "Property" && parent.key == node)) {
-				++preprocessorCoverage.last_location_id;
-				idToLocation[preprocessorCoverage.last_location_id] = addSourceUrl(node.loc);
-				return {expressions: [makeInstrument(preprocessorCoverage.last_location_id), node], type: "SequenceExpression"};
-			}
-			if (node.type.endsWith("Expression") && node.type != "FunctionExpression" && !parent.type.endsWith("Expression")) {
-				++preprocessorCoverage.last_location_id;
-				idToLocation[preprocessorCoverage.last_location_id] = addSourceUrl(node.loc);
-				return {expressions: [makeInstrument(preprocessorCoverage.last_location_id), node], type: "SequenceExpression", old: node };				
+	var ast = esprima.parse(source, {loc:true});
+	var profiled_block = '\
+		function fake() {\n\
+			function __profiled__(/*here function arguments*/) {\n\
+				// here function body\n\
+			}\n\
+			if (window.top.__profileEnable) {\n\
+				try {\n\
+					window.top.__entryTime[++window.top.__entryTop] = window.top.performance.now();\n\
+					return __profiled__.apply(this, arguments);\n\
+				} finally {\n\
+					++window.top.__profileLast;\n\
+					window.top.__profileFinish[window.top.__profileLast] = window.top.performance.now();\n\
+					window.top.__profileStack[window.top.__profileLast] = window.top.__entryTop;\n\
+					window.top.__profileStart[window.top.__profileLast] = window.top.__entryTime[window.top.__entryTop--];\n\
+					window.top.__profileFunction[window.top.__profileLast] = 1 /* here correct function ID */;\n\
+				}\n\
+			}\n\
+			return __profiled__.apply(this, arguments);\n\
+		}\n\
+	';
+
+	estraverse.traverse(ast, {
+		enter: function (node, parent) {
+			if ((node.type === "FunctionDeclaration" && node.id.name !== "__profiled__") || node.type === "FunctionExpression") {
+				preprocessor.functionID++;
+				if (node.id)
+					idToFunctionName[preprocessor.functionID] = node.id.name;
+				else if (node.type === "FunctionExpression" && parent && parent.type === "VariableDeclaration")
+					idToFunctionName[preprocessor.functionID] = parent.id.name;
+				else if (node.type === "FunctionExpression" && parent && parent.type === "Property")
+					idToFunctionName[preprocessor.functionID] = parent.key.name;
+				else {
+					idToFunctionName[preprocessor.functionID] = '(anonymous: ' + preprocessor.functionID.toString() + ')';
+				}
+				idToLocation[preprocessor.functionID] = url;
+				idToLocation[preprocessor.functionID] += ';' + node.loc.start.line + ',' + node.loc.start.column;
+
+				var profiled_ast = esprima.parse(profiled_block);
+				var profiled_function = profiled_ast.body[0].body.body[0];
+				// setup inner profiled function body
+				profiled_function.body = node.body;
+				// setup inner profiled function arguments
+				profiled_function.defaults = node.defaults;
+				profiled_function.params = node.params;
+				// setup function ID
+				var function_id_node = profiled_ast.body[0].body.body[1].consequent.body[0].finalizer.body[4].expression.right;
+				function_id_node.raw = preprocessor.functionID.toString();
+				function_id_node.value = preprocessor.functionID;
+				// setup alternative function body
+				node.body = profiled_ast.body[0].body;
 			}
 		}
 	});
-	
+
 	var processed_source = escodegen.generate(ast);
+	// TODO: try to move it to InjectedScript
+  	var prefix = '\
+  		window.top.__entryTime = window.top.__entryTime || new Float64Array(4 * 4096);\n\
+  		window.top.__entryTop = window.top.__entryTop || -1;\n\
+  		window.top.__profileFunction = window.top.__profileFunction || new Int16Array(16 * 65536);\n\
+  		window.top.__profileStart = window.top.__profileStart || new Float64Array(16 * 65536);\n\
+  		window.top.__profileFinish = window.top.__profileFinish || new Float64Array(16 * 65536);\n\
+  		window.top.__profileLast = window.top.__profileLast || -1;\n\
+  		window.top.__profileStack = window.top.__profileStack || new Int16Array(16 * 65536);\n\
+  		window.top.__idToFunctionName = window.top.__idToFunctionName || {};\n\
+  		window.top.__idToLocation = window.top.__idToLocation || {};\n\
+  		window.top.__profileEnable = window.top.__profileEnable !== undefined ? window.top.__profileEnable : false;\n\
+  	';
+  	for (id in idToFunctionName) {
+  		prefix = prefix.concat('window.top.__idToFunctionName[' + id + '] = \'' + idToFunctionName[id] + '\';\n');
+  		prefix = prefix.concat('window.top.__idToLocation[' + id + '] = \'' + idToLocation[id] + '\';\n');
+  	}
+	prefix = prefix.concat('window.top.__idToFunctionName[-1] = \'preprocess\';\n');
 
-	var prefix = '\
-window.top.__hits = window.top.__hits || new Int32Array(1024 * 1024);\n\
-window.top.__profileEnable = window.top.__profileEnable !== undefined ? window.top.__profileEnable : false;\n\
-window.top.__idToLocation = window.top.__idToLocation || {};\n\
-window.top.__urlToSource = window.top.__urlToSource || {};\n';
+  	var end_time = (new Date()).getTime();
+  	var total_time = (end_time - start_time);
 
-  	for (id in idToLocation)
-  		prefix = prefix.concat('window.top.__idToLocation[' + id + '] = ' + JSON.stringify(idToLocation[id]) + ';\n');
+  	if (total_time > 0.0) {
+	  	prefix += '\
+	  		++window.top.__profileLast;\n\
+			window.top.__profileFinish[window.top.__profileLast] = window.performance.now();\n\
+			window.top.__profileStart[window.top.__profileLast] = window.top.__profileFinish[window.top.__profileLast] - ' + total_time.toString() + ';\n\
+			window.top.__profileStack[window.top.__profileLast] = -100;\n\
+			window.top.__profileFunction[window.top.__profileLast] = -1;\n\
+		';
+	}
 
-  	prefix = prefix.concat('window.top.__urlToSource[\'' + escape(url) + '\'] = \'' + escape(source) + '\';\n');
-
-  	return '{\n' + prefix + '}\n' + processed_source;
+	return '{\n' + prefix + '}\n' + processed_source;
 }
 
 
@@ -112,6 +140,19 @@ function preprocessorWithLibs(preprocessor_source, libs) {
 }
 
 
+function reloadWithPreprocessor(injectedScript) {
+	var preprocessor_source = preprocessorWithLibs(preprocessor.toString(), ['esprima.js', 'estraverse.js', 'escodegen.browser.js']);
+  	var options = {
+    	ignoreCache: true,
+    	userAgent: undefined,
+    	injectedScript: undefined,
+    	preprocessingScript: preprocessor_source
+  	};
+
+  	chrome.devtools.inspectedWindow.reload(options);
+}
+
+
 function reloadWithCoverageAnalysis() {
 	var preprocessor_source = preprocessorWithLibs(preprocessorCoverage.toString(), ['esprima.js', 'estraverse.js', 'escodegen.browser.js']);
   	var options = {
@@ -124,30 +165,169 @@ function reloadWithCoverageAnalysis() {
 }
 
 
-function getCoverageReport() {
-	var report = {};
-	for (var i = 0; i < window.top.__hits.length; ++i) {
-		if (window.top.__hits[i] > 0) {
-			var hits_count = window.top.__hits[i];
-			var loc = window.top.__idToLocation[i];
-			
-			var per_url = report[loc.url] || {hits: [], lines: {}, total: 0, source: '', url: loc.url};
+function getReport() {
+	var profileFunction = window.top.__profileFunction;
+	var profileStart = window.top.__profileStart;
+	var profileFinish = window.top.__profileFinish;
+	var profileLast = window.top.__profileLast;
+	var profileStack = window.top.__profileStack;
+	var idToFunctionName = window.top.__idToFunctionName;
+	var idToLocation = window.top.__idToLocation;
 
-			per_url.hits.push({loc: loc, count: hits_count});
-			if (per_url.lines[loc.start.line])
-				per_url.lines[loc.start.line] += hits_count;
-			else
-				per_url.lines[loc.start.line] = hits_count;
+	var report = [];
+	for (var i = 0; i <= profileLast; ++i) {
+		report.push({
+			name: idToFunctionName[profileFunction[i]],
+			start: profileStart[i],
+			finish: profileFinish[i],
+			stack: profileStack[i],
+			args: {
+				url: idToLocation[profileFunction[i]].split(';')[0],
+				line: parseInt(idToLocation[profileFunction[i]].split(';')[1].split(',')[0]),
+				column: parseInt(idToLocation[profileFunction[i]].split(';')[1].split(',')[1])
+			}
+		});
+	}
 
-			per_url.total += hits_count;
-			per_url.source = __urlToSource[escape(loc.url)];
+	return report;
+}
 
-			report[loc.url] = per_url;
+
+function removePreprocessFromReport(report) {
+	var sum_preprocess_time = 0.0;
+
+	// report is sorted by finish time by default, let's check it
+	for (var i = 1; i < report.length; ++i)
+		if (report[i].finish < report[i - 1].finish)
+			throw 'Bad report order by finish time on index: ' + i;
+
+	var report_by_start = [];
+	for (var i = 0; i < report.length; ++i) {
+		report_by_start.push(report[i]);
+	}
+	report_by_start.sort(function(a, b){ return a.start - b.start; });
+
+	// report is sorted by finish time after sort, let's check it
+	for (var i = 1; i < report.length; ++i)
+		if (report[i].finish < report[i - 1].finish)
+			throw 'Bad report order on index: ' + i;
+	// report by start is sorted by start time, let's check it
+	for (var i = 1; i < report_by_start.length; ++i)
+		if (report_by_start[i].start < report_by_start[i - 1].start)
+			throw 'Bad report_by_start order on index: ' + i;
+
+	var out = [];
+	var start_idx = 0;
+	var finish_idx = 0;
+
+	var report_by_finish = report;
+	// two times for each element - enter and leave
+	for (var i = 0; i < report.length * 2; ++i) {
+		var cur;
+		var is_start = false;
+
+		if (start_idx >= report.length) {
+			// if no starts  - alwasys give finish left
+			cur = report_by_finish[finish_idx];
+			++finish_idx;
+		} else if (finish_idx >= report.length || report_by_start[start_idx].start < report_by_finish[finish_idx].finish) {
+			// if start and finish records exists - get first by time
+			cur = report_by_start[start_idx];
+			++start_idx;
+			is_start = true;
+		} else {
+			// if finish exists and finish time less than start time
+			cur = report_by_finish[finish_idx];
+			++finish_idx;
+		}
+
+		if (cur.name == "preprocess") {
+			// if it's preprocess record
+			if (is_start) {
+				// if is preprocess start
+				cur.correct_start = cur.start - sum_preprocess_time;
+			} else {
+				cur.correct_finish = cur.finish - sum_preprocess_time;
+
+				var dur = cur.finish - cur.start;
+				sum_preprocess_time += dur;
+			}
+		} else if (is_start) {
+			cur.correct_start = cur.start - sum_preprocess_time
+		} else {
+			cur.correct_finish = cur.finish - sum_preprocess_time;
+			out.push(cur);
 		}
 	}
-	return Object.keys(report).map(function (key) {
-    	return report[key];
-	});
+
+	return out;
+}
+
+
+function demoPreprocessor() {
+	function onLoaded() {}
+	var loadMonitor = new InspectedWindow.LoadMonitor(onLoaded);
+	reloadWithPreprocessor(loadMonitor.injectedScript);
+}
+
+
+function refreshTimeline() {
+	var expr = getReport.toString() + '\ngetReport()';
+	function onEval(report, isException) {
+		if (isException)
+			throw new Error('Eval failed for ' + expr, isException.value);
+		document.getElementById('results_count').innerHTML = 'Total count: ' + report.length.toString();
+		refreshVisual(removePreprocessFromReport(report));	
+	}
+	chrome.devtools.inspectedWindow.eval(expr, onEval);
+}
+
+
+function onSelectionChanged(selection) {
+	if (selection.length === 1) {
+		var title = selection[0].title;
+		var url = selection[0].args.url;
+		var line = selection[0].args.line;
+		chrome.devtools.panels.openResource(url, parseInt(line) - 1);
+	}
+}
+
+
+function refreshVisual(report) {
+	var data = [];
+
+	var kt = 1000.0;
+	for (var i = 0; i < report.length; ++i) {
+		data.push({
+			"name": report[i].name,
+			"cat" : "PERF",
+			ph: "X",
+			ts: report[i].correct_start * kt,
+			dur: (report[i].correct_finish - report[i].correct_start) * kt,
+			pid: 0,
+			tid: report[i].stack,
+			args: report[i].args
+		});
+	}
+
+	var model = new tracing.TraceModel();
+	model.importTraces([data]);
+
+	var viewEl = document.getElementById('results');
+	tvcm.ui.decorate(viewEl, tracing.TimelineView);
+	viewEl.model = model;
+	viewEl.viewTitle = '';
+	viewEl.userSelectionChanged = onSelectionChanged;
+}
+
+
+function getCoverageReport() {
+	var report = [];
+	for (var i = 0; i < window.top.__hits.length; ++i) {
+		if (window.top.__hits[i] > 0)
+			report.push({count: window.top.__hits[i], loc: window.top.__idToLocation[i]});
+	}
+	return report;
 }
 
 
@@ -157,75 +337,64 @@ function refreshCoverage() {
 		if (isException)
 			throw new Error('Eval failed for ' + expr, isException.value);
 
-		refreshVisual(report);
+		refreshCoverageVisual(report);
 	}
 	chrome.devtools.inspectedWindow.eval(expr, onEval);	
 }
 
 
-function refreshVisual(report) {
-	report.sort(function(a, b){ return b.total - a.total; });
+function refreshCoverageVisual(report) {
+	console.log(report);
 
-	var ul_tag = document.getElementById('tabs_list');
-	while (ul_tag.firstChild) { ul_tag.removeChild(ul_tag.firstChild); }
-
-	var contents_tag = document.getElementById('tabs_content');
-	while (contents_tag.firstChild) { contents_tag.removeChild(contents_tag.firstChild); }
-
+	var urls = {};
 	for (var i = 0; i < report.length; ++i) {
-		// <li class="active"><a href="#lA" data-toggle="tab">Trace viewer</a></li>
-		var li = document.createElement('li');
-		li.setAttribute('class', (i === 0 ? ' active': ''));
-
-		var a = document.createElement('a');
-		a.setAttribute('href', '#tab-' + (i + 1));
-		a.setAttribute('data-toggle', 'tab');
-		a.innerHTML = report[i].url.substring(report[i].url.lastIndexOf('/')+1) + ':' + report[i].total; 
-
-		li.appendChild(a);
-		ul_tag.appendChild(li);
-
-      	// <div class="tab-pane active" id="lA">
-      	//   <textarea id="coveraged_source"></textarea>
-      	// </div>
-      	var div_content = document.createElement('div');
-		div_content.setAttribute('class', 'tab-pane' + (i === 0 ? ' active': ''));
-		div_content.setAttribute('id', 'tab-' + (i + 1));
-
-		var textarea = document.createElement('textarea');
-		textarea.value = unescape(report[i].source);
-		div_content.appendChild(textarea);
-		contents_tag.appendChild(div_content);
-
-		var cm = CodeMirror.fromTextArea(textarea, {
-			mode: "javascript",
-			lineNumbers: true,
-			gutters: ["CodeMirror-linenumbers", "hits"]
-		});
-
-		var max_hits = 0;
-		var report_hits = report[i].hits;
-		for (var j = 0; j < report_hits.length; ++j)
-			if (report_hits[j].count > max_hits)
-				max_hits = report_hits[j].count;
-
-		var mark_count = 100;
-		for (var j = 0; j < report_hits.length; ++j) {
-			var loc = report_hits[j].loc;
-			var hits = report_hits[j].count;
-			cm.markText({line: loc.start.line - 1, ch: loc.start.column}, {line: loc.end.line - 1, ch: loc.end.column}, {className: "mark-" + Math.ceil(hits / max_hits * mark_count)});	
+		if (report[i].count > 0) {
+			if (urls[report[i].loc.url] === undefined)
+				urls[report[i].loc.url] = report[i].count;
+			else
+				urls[report[i].loc.url] += report[i].count;
 		}
-
-		function makeMarker(hits) {
-		  var marker = document.createElement("div");
-		  marker.innerHTML = hits.toString();
-		  return marker;
-		}
-
-		for (line in report[i].lines) {
-			cm.setGutterMarker(parseInt(line) - 1, "hits", makeMarker(report[i].lines[line]));
-		}		
 	}
+
+	var urls_list = [];
+	for (var url in urls) {
+		urls_list.push({url: url, count: urls[url]});
+	}
+
+	urls_list.sort(function(a, b){ return b.count - a.count; });
+
+	console.log(urls_list);
+	// report.sort(function(a, b){ return b.count - a.count});
+	var table = "<table id=\"sources\" cellpadding=\"0\" cellspacing=\"0\"><tbody><tr>";
+	for (var i = 0; i < urls_list.length; i++) {
+   		if (i > 0)
+   			table += "</tr><tr>";
+  		table += "<td>" + urls_list[i].count + "</td>";
+  		table += "<td><a href=\"#\">" + urls_list[i].url + "</a></td>";
+	}
+	table += "</tr></tbody></table>";
+	document.getElementById('results_info').innerHTML = table;
+
+	$("#sources a").on("click", function(){
+		refreshSourceWithCoverageQuery($(this).text());
+	});
+
+	// var readOnlyCodeMirror = CodeMirror.fromTextArea(document.getElementById('coveraged_source'), {
+ //        mode: "javascript",
+ //        theme: "default",
+ //        lineNumbers: true,
+ //        readOnly: true
+ //    });
+
+ //    readOnlyCodeMirror.setValue("function myScript(){\nreturn 100;\n}\n");
+ //    readOnlyCodeMirror.markText({line: 1, ch: 1}, {line: 1, ch: 5}, {className: 'test'});
+
+	// var myCodeMirror = CodeMirror.fromTextArea(document.getElementById('coveraged_source'));
+
+	// var myCodeMirror = CodeMirror(document.getElementById('results_info'), {
+ //  		value: "function myScript(){return 100;}\n",
+ //  		mode:  "javascript"
+	// });
 }
 
 
@@ -272,6 +441,9 @@ function refreshSourceWithCoverage(report, url, source) {
 
     for (var i = 0; i < report.length; ++i) {
     	cm.setGutterMarker(report[i].loc.start.line - 1, "counts", makeMarker(report[i].count));;
+    	// readOnlyCodeMirror.markText({line: report[i].loc.start.line - 1, ch: report[i].loc.start.column}, 
+    	// 	{line: report[i].loc.end.line - 1, ch: report[i].loc.end.column},
+    	// 	{className: 'test'});
     }
 }
 
@@ -289,8 +461,8 @@ function switchProfiler() {
 		chrome.devtools.inspectedWindow.eval(expr);
 		document.querySelector('.switch-button').innerHTML = newInner;
 		if (!newValue)
-			// refreshTimeline();
-			refreshCoverage();
+			refreshTimeline();
+			// refreshCoverage();
 	}
 	chrome.devtools.inspectedWindow.eval(expr, onEval);		
 }
@@ -309,6 +481,9 @@ function clearProfile() {
 
 
 function listen() {
+  var reloadButton = document.querySelector('.reload-button');
+  reloadButton.addEventListener('click', demoPreprocessor);
+
   var refreshButton = document.querySelector('.refresh-button');
   refreshButton.addEventListener('click', refreshCoverage/*refreshTimeline*/);
 
@@ -324,32 +499,4 @@ function listen() {
 
 
 window.addEventListener('load', listen);
-
-
-function generateMarkStyle(from, to, count) {
-    var head = document.head || document.getElementsByTagName('head')[0];
-    var style = document.createElement('style');
-    var css = '';
-	for (var i = 1; i <= count; ++i) {
-		var part = i / count;
-		var r = (to.r - from.r) * part + from.r;
-		var g = (to.g - from.g) * part + from.g;
-		var b = (to.b - from.b) * part + from.b;
-
-		css += '.mark-' + i + ' { background: rgb(' + Math.ceil(r) + ',' + Math.ceil(g) + ',' + Math.ceil(b) +'); }\n';
-	}
-	style.type = 'text/css';
-	if (style.styleSheet){
-	  style.styleSheet.cssText = css;
-	} else {
-	  style.appendChild(document.createTextNode(css));
-	}
-
-	head.appendChild(style);		
-}
-
-var mark_count = 100;
-generateMarkStyle({r: 251, g: 255, b: 178}, {r: 247, g: 139, b: 81}, mark_count);
-
-
 })();

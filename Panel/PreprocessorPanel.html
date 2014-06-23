@@ -27,16 +27,15 @@
 </head>
 <body>
   <div class="btn-group">
+    <button class="reload-button">Reload page with Profiler</button>
     <button class="reload-coverage-button">Reload page with Coverage Analysis</button>
     <button class="refresh-button">Refresh</button>
     <button class="switch-button">Enable</button>
     <button class="clear-button">Clear</button>
   </div>
 
-  <div class="tabbable">
-    <ul class="nav nav-tabs" id="tabs_list"></ul>
-    <div class="tab-content" id="tabs_content"></div>
-  </div>
+  <div id="results_count"></div>
+  <div id="results"></div>
 
   <script src="InspectedWindowLoadMonitor.js"></script>
   <script src="PreprocessorPanel.js"></script>
