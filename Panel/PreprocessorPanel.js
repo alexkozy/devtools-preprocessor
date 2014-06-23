@@ -1,4 +1,3 @@
-// TODO: move functions to different files
 (function() {
 
 function preprocessorCoverage(source, url, listenerName) {
@@ -37,11 +36,18 @@ function preprocessorCoverage(source, url, listenerName) {
 
 	ast = estraverse.replace(ast, {
 		leave: function (node, parent) {
-			// if (node.type === "ReturnStatement" && node.argument === null) {
-			// 	++preprocessorCoverage.last_location_id;
-			// 	idToLocation[preprocessorCoverage.last_location_id] = addSourceUrl(node.loc);			
-			// 	return {type: "ReturnStatement", argument: {type: "ExpressionStatement", expression: makeInstrument(preprocessorCoverage.last_location_id), loc: node.loc }};			
-			// }
+			if (node.type === "ReturnStatement" && node.argument === null) {
+			 	++preprocessorCoverage.last_location_id;
+			 	idToLocation[preprocessorCoverage.last_location_id] = addSourceUrl(node.loc);	
+			 	return { 
+			 		type: "ReturnStatement", argument: { 
+			 			type: "SequenceExpression", expressions: [
+			 				makeInstrument(preprocessorCoverage.last_location_id), 
+			 				{ type: "Identifier", name: "undefined" }
+			 			]
+			 		}
+			 	};			
+			}
 			if (node.type === "EmptyStatement") {
 				++preprocessorCoverage.last_location_id;
 				idToLocation[preprocessorCoverage.last_location_id] = addSourceUrl(node.loc);			
@@ -50,7 +56,7 @@ function preprocessorCoverage(source, url, listenerName) {
 			if (node.type === "Literal" && !parent.type.endsWith("Expression") && !(parent.type === "Property" && parent.key == node)) {
 				++preprocessorCoverage.last_location_id;
 				idToLocation[preprocessorCoverage.last_location_id] = addSourceUrl(node.loc);
-				return {expressions: [makeInstrument(preprocessorCoverage.last_location_id), node], type: "SequenceExpression", old: node, old_code: escodegen.generate(parent)};
+				return {expressions: [makeInstrument(preprocessorCoverage.last_location_id), node], type: "SequenceExpression"};
 			}
 			if (node.type.endsWith("Expression") && node.type != "FunctionExpression" && !parent.type.endsWith("Expression")) {
 				++preprocessorCoverage.last_location_id;
@@ -133,7 +139,7 @@ function getCoverageReport() {
 			else
 				per_url.lines[loc.start.line] = hits_count;
 
-			per_url.total = hits_count;
+			per_url.total += hits_count;
 			per_url.source = __urlToSource[escape(loc.url)];
 
 			report[loc.url] = per_url;
@@ -220,39 +226,6 @@ function refreshVisual(report) {
 			cm.setGutterMarker(parseInt(line) - 1, "hits", makeMarker(report[i].lines[line]));
 		}		
 	}
-
-	// console.log(urls_list);
-	// // report.sort(function(a, b){ return b.count - a.count});
-	// var table = "<table id=\"sources\" cellpadding=\"0\" cellspacing=\"0\"><tbody><tr>";
-	// for (var i = 0; i < urls_list.length; i++) {
- //   		if (i > 0)
- //   			table += "</tr><tr>";
- //  		table += "<td>" + urls_list[i].count + "</td>";
- //  		table += "<td><a href=\"#\">" + urls_list[i].url + "</a></td>";
-	// }
-	// table += "</tr></tbody></table>";
-	// document.getElementById('results_info').innerHTML = table;
-
-	// $("#sources a").on("click", function(){
-	// 	refreshSourceWithCoverageQuery($(this).text());
-	// });
-
-	// var readOnlyCodeMirror = CodeMirror.fromTextArea(document.getElementById('coveraged_source'), {
- //        mode: "javascript",
- //        theme: "default",
- //        lineNumbers: true,
- //        readOnly: true
- //    });
-
- //    readOnlyCodeMirror.setValue("function myScript(){\nreturn 100;\n}\n");
- //    readOnlyCodeMirror.markText({line: 1, ch: 1}, {line: 1, ch: 5}, {className: 'test'});
-
-	// var myCodeMirror = CodeMirror.fromTextArea(document.getElementById('coveraged_source'));
-
-	// var myCodeMirror = CodeMirror(document.getElementById('results_info'), {
- //  		value: "function myScript(){return 100;}\n",
- //  		mode:  "javascript"
-	// });
 }
 
 
@@ -299,9 +272,6 @@ function refreshSourceWithCoverage(report, url, source) {
 
     for (var i = 0; i < report.length; ++i) {
     	cm.setGutterMarker(report[i].loc.start.line - 1, "counts", makeMarker(report[i].count));;
-    	// readOnlyCodeMirror.markText({line: report[i].loc.start.line - 1, ch: report[i].loc.start.column}, 
-    	// 	{line: report[i].loc.end.line - 1, ch: report[i].loc.end.column},
-    	// 	{className: 'test'});
     }
 }
 
