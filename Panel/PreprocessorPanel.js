@@ -1,4 +1,4 @@
-// TODO: move functions to different files
+// /usr/local/google/home/k…/src/third_party/WebKit/Source
 (function() {
 
 // This function is converted to a string and becomes the preprocessor
@@ -7,14 +7,17 @@ function preprocessor(source, url, listenerName) {
 
 	if (preprocessor.esprima === undefined) {
 		__PREFIX__;
+		sourceMap = window.sourceMap;
 	} else {
 		esprima = preprocessor.esprima;
 		estraverse = preprocessor.estraverse;
 		escodegen = preprocessor.escodegen;
+		sourceMap = preprocessor.sourceMap;
 	}
 	preprocessor.esprima = esprima;
 	preprocessor.estraverse = estraverse;
 	preprocessor.escodegen = escodegen;
+	preprocessor.sourceMap = sourceMap;
 	if (preprocessor.functionID === undefined) preprocessor.functionID = 0;
 	var idToFunctionName = {};
 	var idToLocation = {};
@@ -54,10 +57,10 @@ function preprocessor(source, url, listenerName) {
 				else {
 					idToFunctionName[preprocessor.functionID] = '(anonymous: ' + preprocessor.functionID.toString() + ')';
 				}
-				idToLocation[preprocessor.functionID] = url;
-				idToLocation[preprocessor.functionID] += ';' + node.loc.start.line + ',' + node.loc.start.column;
+				idToLocation[preprocessor.functionID] = url ? url : '';
+				idToLocation[preprocessor.functionID] += ';' + (node.loc.start.line  ? node.loc.start.line : 1) + ',' + (node.loc.start.column ? node.loc.start.column : 1);
 
-				var profiled_ast = esprima.parse(profiled_block);
+				var profiled_ast = esprima.parse(profiled_block, {loc: true});
 				var profiled_function = profiled_ast.body[0].body.body[0];
 				// setup inner profiled function body
 				profiled_function.body = node.body;
@@ -75,7 +78,6 @@ function preprocessor(source, url, listenerName) {
 	});
 
 	var processed_source = escodegen.generate(ast);
-	// TODO: try to move it to InjectedScript
   	var prefix = '\
   		window.top.__entryTime = window.top.__entryTime || new Float64Array(4 * 4096);\n\
   		window.top.__entryTop = window.top.__entryTop || -1;\n\
@@ -93,6 +95,7 @@ function preprocessor(source, url, listenerName) {
   		prefix = prefix.concat('window.top.__idToLocation[' + id + '] = \'' + idToLocation[id] + '\';\n');
   	}
 	prefix = prefix.concat('window.top.__idToFunctionName[-1] = \'preprocess\';\n');
+	prefix = prefix.concat('window.top.__idToLocation[-1] = \'preprocess;1,1\';\n');
 
   	var end_time = (new Date()).getTime();
   	var total_time = (end_time - start_time);
@@ -107,7 +110,68 @@ function preprocessor(source, url, listenerName) {
 		';
 	}
 
-	return '{\n' + prefix + '}\n' + processed_source;
+	// var processed_ast = esprima.parse(processed_source, {loc: true});
+
+	// var source_locs = [];
+	// estraverse.traverse(ast, {
+	// 	enter: function (node) {
+	// 		if (node.loc)
+	// 			source_locs.push(node.loc);
+	// 	}
+	// });
+
+	// var processed_locs = [];
+	// estraverse.traverse(processed_ast, {
+	// 	enter: function (node) {
+	// 		if (node.loc)
+	// 			processed_locs.push(node.loc);
+	// 	}
+	// });
+
+	// if (source_locs.length !== processed_locs.length) throw 1;
+
+	var map = new sourceMap.SourceMapGenerator({
+	  file: preprocessor.functionID.toString() + ".js"
+	});
+
+	map.addMapping({
+	  source: url,
+	  generated: {
+	    line: processed_locs[i].end.line,
+	    column: processed_locs[i].end.column
+	  },
+	  original: {
+	    line: source_locs[i].end.line,
+	    column: source_locs[i].end.column
+	  }
+	});	
+
+	// for (var i = 0; i < source_locs.length; ++i) {
+	// 	map.addMapping({
+	// 	  source: url,
+	// 	  generated: {
+	// 	    line: processed_locs[i].start.line,
+	// 	    column: processed_locs[i].start.column
+	// 	  },
+	// 	  original: {
+	// 	    line: source_locs[i].start.line,
+	// 	    column: source_locs[i].start.column
+	// 	  }
+	// 	});	
+	// 	map.addMapping({
+	// 	  source: url,
+	// 	  generated: {
+	// 	    line: processed_locs[i].end.line,
+	// 	    column: processed_locs[i].end.column
+	// 	  },
+	// 	  original: {
+	// 	    line: source_locs[i].end.line,
+	// 	    column: source_locs[i].end.column
+	// 	  }
+	// 	});	
+	// }
+	return '{\n' + prefix + '}\n' + processed_source + 
+		'\n//@ sourceMappingURL=data:application/json;base64,' + btoa(map.toString()) + '\n//@ sourceURL=' + preprocessor.functionID.toString() + '.js';
 }
 
 
@@ -141,7 +205,7 @@ function preprocessorWithLibs(preprocessor_source, libs) {
 
 
 function reloadWithPreprocessor(injectedScript) {
-	var preprocessor_source = preprocessorWithLibs(preprocessor.toString(), ['esprima.js', 'estraverse.js', 'escodegen.browser.js']);
+	var preprocessor_source = preprocessorWithLibs(preprocessor.toString(), ['esprima.js', 'estraverse.js', 'escodegen.browser.js', 'source-map.js']);
   	var options = {
     	ignoreCache: true,
     	userAgent: undefined,
@@ -150,18 +214,6 @@ function reloadWithPreprocessor(injectedScript) {
   	};
 
   	chrome.devtools.inspectedWindow.reload(options);
-}
-
-
-function reloadWithCoverageAnalysis() {
-	var preprocessor_source = preprocessorWithLibs(preprocessorCoverage.toString(), ['esprima.js', 'estraverse.js', 'escodegen.browser.js']);
-  	var options = {
-    	ignoreCache: true,
-    	userAgent: undefined,
-    	injectedScript: undefined,
-    	preprocessingScript: preprocessor_source
-  	};
-  	chrome.devtools.inspectedWindow.reload(options);	
 }
 
 
@@ -321,133 +373,6 @@ function refreshVisual(report) {
 }
 
 
-function getCoverageReport() {
-	var report = [];
-	for (var i = 0; i < window.top.__hits.length; ++i) {
-		if (window.top.__hits[i] > 0)
-			report.push({count: window.top.__hits[i], loc: window.top.__idToLocation[i]});
-	}
-	return report;
-}
-
-
-function refreshCoverage() {
-	var expr = getCoverageReport.toString() + '\ngetCoverageReport()';
-	function onEval(report, isException) {
-		if (isException)
-			throw new Error('Eval failed for ' + expr, isException.value);
-
-		refreshCoverageVisual(report);
-	}
-	chrome.devtools.inspectedWindow.eval(expr, onEval);	
-}
-
-
-function refreshCoverageVisual(report) {
-	console.log(report);
-
-	var urls = {};
-	for (var i = 0; i < report.length; ++i) {
-		if (report[i].count > 0) {
-			if (urls[report[i].loc.url] === undefined)
-				urls[report[i].loc.url] = report[i].count;
-			else
-				urls[report[i].loc.url] += report[i].count;
-		}
-	}
-
-	var urls_list = [];
-	for (var url in urls) {
-		urls_list.push({url: url, count: urls[url]});
-	}
-
-	urls_list.sort(function(a, b){ return b.count - a.count; });
-
-	console.log(urls_list);
-	// report.sort(function(a, b){ return b.count - a.count});
-	var table = "<table id=\"sources\" cellpadding=\"0\" cellspacing=\"0\"><tbody><tr>";
-	for (var i = 0; i < urls_list.length; i++) {
-   		if (i > 0)
-   			table += "</tr><tr>";
-  		table += "<td>" + urls_list[i].count + "</td>";
-  		table += "<td><a href=\"#\">" + urls_list[i].url + "</a></td>";
-	}
-	table += "</tr></tbody></table>";
-	document.getElementById('results_info').innerHTML = table;
-
-	$("#sources a").on("click", function(){
-		refreshSourceWithCoverageQuery($(this).text());
-	});
-
-	// var readOnlyCodeMirror = CodeMirror.fromTextArea(document.getElementById('coveraged_source'), {
- //        mode: "javascript",
- //        theme: "default",
- //        lineNumbers: true,
- //        readOnly: true
- //    });
-
- //    readOnlyCodeMirror.setValue("function myScript(){\nreturn 100;\n}\n");
- //    readOnlyCodeMirror.markText({line: 1, ch: 1}, {line: 1, ch: 5}, {className: 'test'});
-
-	// var myCodeMirror = CodeMirror.fromTextArea(document.getElementById('coveraged_source'));
-
-	// var myCodeMirror = CodeMirror(document.getElementById('results_info'), {
- //  		value: "function myScript(){return 100;}\n",
- //  		mode:  "javascript"
-	// });
-}
-
-
-function refreshSourceWithCoverageQuery(url) {
-	var expr = getCoverageReport.toString() + '\ngetCoverageReport()';
-	function onEval(report, isException) {
-		if (isException)
-			throw new Error('Eval failed for ' + expr, isException.value);
-
-		expr = "window.top.__urlToSource['" + escape(url) + "']";
-		function onEval(source, isException) {
-			if (isException)
-				throw new Error('Eval failed for ' + expr, isException.value);
-			refreshSourceWithCoverage(report, url, unescape(source));
-		}
-		chrome.devtools.inspectedWindow.eval(expr, onEval);
-	}
-	chrome.devtools.inspectedWindow.eval(expr, onEval);	
-}
-
-
-function refreshSourceWithCoverage(report, url, source) {
-	report = report.filter(function(obj){
-		return obj.loc.url == url;
-	});
-
-	var readOnlyCodeMirror = CodeMirror.fromTextArea(document.getElementById('coveraged_source'), {
-        mode: "javascript",
-        theme: "default",
-        lineNumbers: true,
-        readOnly: true,
-        gutters: ["CodeMirror-linenumbers", "counts"]
-    });
-
-    readOnlyCodeMirror.setValue(source);
-
-    var cm = readOnlyCodeMirror;
-
-    function makeMarker(count) {
-    	var marker = document.createElement("div");
-    	marker.innerHTML = count.toString();
-    	return marker;
-    }
-
-    for (var i = 0; i < report.length; ++i) {
-    	cm.setGutterMarker(report[i].loc.start.line - 1, "counts", makeMarker(report[i].count));;
-    	// readOnlyCodeMirror.markText({line: report[i].loc.start.line - 1, ch: report[i].loc.start.column}, 
-    	// 	{line: report[i].loc.end.line - 1, ch: report[i].loc.end.column},
-    	// 	{className: 'test'});
-    }
-}
-
-
 function switchProfiler() {
   	var expr = 'window.top.__profileEnable';
 	function onEval(profileEnable, isException) {
@@ -462,7 +387,6 @@ function switchProfiler() {
 		document.querySelector('.switch-button').innerHTML = newInner;
 		if (!newValue)
 			refreshTimeline();
-			// refreshCoverage();
 	}
 	chrome.devtools.inspectedWindow.eval(expr, onEval);		
 }
@@ -480,12 +404,16 @@ function clearProfile() {
 }
 
 
+function testDataURI() {
+	chrome.devtools.panels.openResource('data:application/javascript;charset=utf8,console.log(123)%3B');
+}
+
 function listen() {
   var reloadButton = document.querySelector('.reload-button');
   reloadButton.addEventListener('click', demoPreprocessor);
 
   var refreshButton = document.querySelector('.refresh-button');
-  refreshButton.addEventListener('click', refreshCoverage/*refreshTimeline*/);
+  refreshButton.addEventListener('click', refreshTimeline);
 
   var switchButton = document.querySelector('.switch-button');
   switchButton.addEventListener('click', switchProfiler);
@@ -493,8 +421,8 @@ function listen() {
   var clearButton = document.querySelector('.clear-button');
   clearButton.addEventListener('click', clearProfile);
 
-  var reloadCoverageButton = document.querySelector('.reload-coverage-button');
-  reloadCoverageButton.addEventListener('click', reloadWithCoverageAnalysis);
+  var testButton = document.querySelector('.test-data-uri');
+  testButton.addEventListener('click', testDataURI);
 }
 
 
