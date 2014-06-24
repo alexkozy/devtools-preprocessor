@@ -22,7 +22,7 @@ function preprocessor(source, url, listenerName) {
 	var idToFunctionName = {};
 	var idToLocation = {};
 
-	var ast = esprima.parse(source, {loc:true});
+	var ast = esprima.parse(source + '\n\n\n\n', {loc:true});
 	var profiled_block = '\
 		function fake() {\n\
 			function __profiled__(/*here function arguments*/) {\n\
@@ -60,7 +60,7 @@ function preprocessor(source, url, listenerName) {
 				idToLocation[preprocessor.functionID] = url ? url : '';
 				idToLocation[preprocessor.functionID] += ';' + (node.loc.start.line  ? node.loc.start.line : 1) + ',' + (node.loc.start.column ? node.loc.start.column : 1);
 
-				var profiled_ast = esprima.parse(profiled_block, {loc: true});
+				var profiled_ast = esprima.parse(profiled_block);
 				var profiled_function = profiled_ast.body[0].body.body[0];
 				// setup inner profiled function body
 				profiled_function.body = node.body;
@@ -77,7 +77,6 @@ function preprocessor(source, url, listenerName) {
 		}
 	});
 
-	var processed_source = escodegen.generate(ast);
   	var prefix = '\
   		window.top.__entryTime = window.top.__entryTime || new Float64Array(4 * 4096);\n\
   		window.top.__entryTop = window.top.__entryTop || -1;\n\
@@ -110,68 +109,27 @@ function preprocessor(source, url, listenerName) {
 		';
 	}
 
-	// var processed_ast = esprima.parse(processed_source, {loc: true});
+	var prefix_ast = esprima.parse(prefix);
+	var prefix_body = prefix_ast.body;
 
-	// var source_locs = [];
-	// estraverse.traverse(ast, {
-	// 	enter: function (node) {
-	// 		if (node.loc)
-	// 			source_locs.push(node.loc);
-	// 	}
-	// });
+	ast.body = prefix_body.concat(ast.body);
 
-	// var processed_locs = [];
-	// estraverse.traverse(processed_ast, {
-	// 	enter: function (node) {
-	// 		if (node.loc)
-	// 			processed_locs.push(node.loc);
-	// 	}
-	// });
+	// console.log(prefix);
+	// return source;
 
-	// if (source_locs.length !== processed_locs.length) throw 1;
+	var processed_result = escodegen.generate(ast, {sourceMap: url, sourceMapWithCode: true, sourceContent: source});
+	var processed_source = processed_result.code;
 
-	var map = new sourceMap.SourceMapGenerator({
-	  file: preprocessor.functionID.toString() + ".js"
-	});
+	// console.log(processed_result.sourceContent);
+	// console.log(processed_source + 
+	// 		'\n//@ sourceMappingURL=data:application/json;base64,' + btoa(processed_result.map.toString()) + '\n//@ sourceURL=' + preprocessor.functionID.toString() + '.js')
+	// console.log(processed_result.map.toString());
 
-	map.addMapping({
-	  source: url,
-	  generated: {
-	    line: processed_locs[i].end.line,
-	    column: processed_locs[i].end.column
-	  },
-	  original: {
-	    line: source_locs[i].end.line,
-	    column: source_locs[i].end.column
-	  }
-	});	
-
-	// for (var i = 0; i < source_locs.length; ++i) {
-	// 	map.addMapping({
-	// 	  source: url,
-	// 	  generated: {
-	// 	    line: processed_locs[i].start.line,
-	// 	    column: processed_locs[i].start.column
-	// 	  },
-	// 	  original: {
-	// 	    line: source_locs[i].start.line,
-	// 	    column: source_locs[i].start.column
-	// 	  }
-	// 	});	
-	// 	map.addMapping({
-	// 	  source: url,
-	// 	  generated: {
-	// 	    line: processed_locs[i].end.line,
-	// 	    column: processed_locs[i].end.column
-	// 	  },
-	// 	  original: {
-	// 	    line: source_locs[i].end.line,
-	// 	    column: source_locs[i].end.column
-	// 	  }
-	// 	});	
-	// }
+	if (processed_result.map)
+		return processed_source + 
+			'\n//@ sourceMappingURL=data:application/json;base64,' + btoa(processed_result.map.toString()) + '\n//@ sourceURL=' + preprocessor.functionID.toString() + '.js';
 	return '{\n' + prefix + '}\n' + processed_source + 
-		'\n//@ sourceMappingURL=data:application/json;base64,' + btoa(map.toString()) + '\n//@ sourceURL=' + preprocessor.functionID.toString() + '.js';
+		'\n//@ sourceURL=' + preprocessor.functionID.toString() + '.js';
 }
 
 
