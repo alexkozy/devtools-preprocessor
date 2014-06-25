@@ -21,6 +21,10 @@ function preprocessor(source, url, listenerName) {
 	if (preprocessor.functionID === undefined) preprocessor.functionID = 0;
 	var idToFunctionName = {};
 	var idToLocation = {};
+	var idToURL = {};
+	String.prototype.startsWith = function (str){
+	    return this.indexOf(str) == 0;
+	};
 
 	var ast = esprima.parse(source + '\n\n\n\n', {loc:true});
 	var profiled_block = '\
@@ -44,6 +48,9 @@ function preprocessor(source, url, listenerName) {
 		}\n\
 	';
 
+	if (url.length < 1)
+		url = 'data:application/javascript;base64,' + btoa(source);
+
 	estraverse.traverse(ast, {
 		enter: function (node, parent) {
 			if ((node.type === "FunctionDeclaration" && node.id.name !== "__profiled__") || node.type === "FunctionExpression") {
@@ -57,8 +64,8 @@ function preprocessor(source, url, listenerName) {
 				else {
 					idToFunctionName[preprocessor.functionID] = '(anonymous: ' + preprocessor.functionID.toString() + ')';
 				}
-				idToLocation[preprocessor.functionID] = url ? url : '';
-				idToLocation[preprocessor.functionID] += ';' + (node.loc.start.line  ? node.loc.start.line : 1) + ',' + (node.loc.start.column ? node.loc.start.column : 1);
+				idToURL[preprocessor.functionID] = url ? url : '';
+				idToLocation[preprocessor.functionID] = (node.loc.start.line  ? node.loc.start.line : 1) + ',' + (node.loc.start.column ? node.loc.start.column : 1);
 
 				var profiled_ast = esprima.parse(profiled_block);
 				var profiled_function = profiled_ast.body[0].body.body[0];
@@ -87,14 +94,23 @@ function preprocessor(source, url, listenerName) {
   		window.top.__profileStack = window.top.__profileStack || new Int16Array(16 * 65536);\n\
   		window.top.__idToFunctionName = window.top.__idToFunctionName || {};\n\
   		window.top.__idToLocation = window.top.__idToLocation || {};\n\
+  		window.top.__idToHost = window.top.__idToHost || {};\n\
+  		window.top.__idToURL = window.top.__idToURL || {};\n\
   		window.top.__profileEnable = window.top.__profileEnable !== undefined ? window.top.__profileEnable : false;\n\
   	';
   	for (id in idToFunctionName) {
   		prefix = prefix.concat('window.top.__idToFunctionName[' + id + '] = \'' + idToFunctionName[id] + '\';\n');
   		prefix = prefix.concat('window.top.__idToLocation[' + id + '] = \'' + idToLocation[id] + '\';\n');
+  		prefix = prefix.concat('window.top.__idToURL[' + id + '] =\'' + idToURL[id] + '\';\n');
+  		if (!url.startsWith('http://'))
+  			prefix = prefix.concat('window.top.__idToHost[' + id + '] = \'http://\' + window.location.host + \'/\';\n');
+  		else
+  			prefix = prefix.concat('window.top.__idToHost[' + id + '] = \'\';\n');
   	}
 	prefix = prefix.concat('window.top.__idToFunctionName[-1] = \'preprocess\';\n');
-	prefix = prefix.concat('window.top.__idToLocation[-1] = \'preprocess;1,1\';\n');
+	prefix = prefix.concat('window.top.__idToURL[-1] = \'preprocess\';\n');
+	prefix = prefix.concat('window.top.__idToLocation[-1] = \'1,1\';\n');
+	prefix = prefix.concat('window.top.__idToHost[-1] = \'\';\n');
 
   	var end_time = (new Date()).getTime();
   	var total_time = (end_time - start_time);
@@ -114,22 +130,26 @@ function preprocessor(source, url, listenerName) {
 
 	ast.body = prefix_body.concat(ast.body);
 
-	// console.log(prefix);
-	// return source;
-
 	var processed_result = escodegen.generate(ast, {sourceMap: url, sourceMapWithCode: true, sourceContent: source});
 	var processed_source = processed_result.code;
 
-	// console.log(processed_result.sourceContent);
+	// console.log(url);
 	// console.log(processed_source + 
-	// 		'\n//@ sourceMappingURL=data:application/json;base64,' + btoa(processed_result.map.toString()) + '\n//@ sourceURL=' + preprocessor.functionID.toString() + '.js')
-	// console.log(processed_result.map.toString());
+	// 		'\n//@ sourceMappingURL=data:application/json;base64,' + btoa(processed_result.map.toString()) + 
+	// 		'\n//@ sourceURL=' + preprocessor.functionID.toString() + '.js');
+
+	var lastPointIndex = url.lastIndexOf(".");
+	if (lastPointIndex !== -1)
+		url = url.substr(0, lastPointIndex) + '.profiled.' + url.substr(lastPointIndex + 1);
+	else
+		url = url + '.profiled';
 
 	if (processed_result.map)
 		return processed_source + 
-			'\n//@ sourceMappingURL=data:application/json;base64,' + btoa(processed_result.map.toString()) + '\n//@ sourceURL=' + preprocessor.functionID.toString() + '.js';
-	return '{\n' + prefix + '}\n' + processed_source + 
-		'\n//@ sourceURL=' + preprocessor.functionID.toString() + '.js';
+			'\n//@ sourceMappingURL=data:application/json;base64,' + btoa(processed_result.map.toString()) + 
+			'\n//@ sourceURL=' + url;
+	return '{\n' + prefix + '}\n' + processed_source;// + 
+		'\n//@ sourceURL=' + url;
 }
 
 
@@ -183,6 +203,8 @@ function getReport() {
 	var profileStack = window.top.__profileStack;
 	var idToFunctionName = window.top.__idToFunctionName;
 	var idToLocation = window.top.__idToLocation;
+	var idToURL = window.top.__idToURL;
+	var idToHost = window.top.__idToHost;
 
 	var report = [];
 	for (var i = 0; i <= profileLast; ++i) {
@@ -192,9 +214,9 @@ function getReport() {
 			finish: profileFinish[i],
 			stack: profileStack[i],
 			args: {
-				url: idToLocation[profileFunction[i]].split(';')[0],
-				line: parseInt(idToLocation[profileFunction[i]].split(';')[1].split(',')[0]),
-				column: parseInt(idToLocation[profileFunction[i]].split(';')[1].split(',')[1])
+				url: idToHost[profileFunction[i]] + idToURL[profileFunction[i]],
+				line: parseInt(idToLocation[profileFunction[i]].split(',')[0]),
+				column: parseInt(idToLocation[profileFunction[i]].split(',')[1])
 			}
 		});
 	}
