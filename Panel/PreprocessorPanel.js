@@ -11,8 +11,58 @@ function preprocessorCoverage(source, url, listenerName) {
 	preprocessorCoverage.esprima = esprima;
 	preprocessorCoverage.estraverse = estraverse;
 	preprocessorCoverage.escodegen = escodegen;
+	String.prototype.endsWith = function(suffix) {
+    	return this.indexOf(suffix, this.length - suffix.length) !== -1;
+	};
 
-	return source;
+	var ast = esprima.parse(source, {loc: true});
+
+	estraverse.replace(ast, {
+		enter: function(node, parent) {
+			if (parent.skip) {
+				node.skip = true;
+				return node;
+			}
+			if (parent.type === "AssignmentExpression" && node === parent.left) {
+				node.skip = true;
+				return node;
+			}
+			if ('id' in parent && node === parent.id) {
+				node.skip = true;
+				return node;				
+			}
+			if (parent.type === "MemberExpression") {
+				node.skip = true;
+				return node;
+			}
+			if (parent.type === "FunctionDeclaration" && (node !== parent.body && node !== parent.defaults)) {
+				node.skip = true;
+				return node;			
+			}
+			if (parent.type === "CallExpression" && node === parent.callee) {
+				node.skip = true;
+				return node;
+			}
+		},
+		leave: function (node, parent) {
+			if (node.skip) return node;
+			if (node.type.endsWith("Expression")) {
+				return {type: "CallExpression", callee: {type: "Identifier", name: "__lv"}, arguments: [node]};
+			}
+			if (node.type === "Identifier") {
+				return {type: "CallExpression", callee: {type: "Identifier", name: "__lv"}, arguments: [node]};			
+			}
+			return node;
+		}
+	});
+
+	console.log(source);
+	console.log(ast);
+	// debugger;
+	var processed_source = 'function __lv(value){ debugger; return value; }\n' + escodegen.generate(ast) + '\n//@ sourceURL=foo.js';
+	console.log(processed_source);
+
+	return processed_source;
 }
 
 
