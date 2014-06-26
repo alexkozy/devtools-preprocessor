@@ -2,7 +2,10 @@
 (function() {
 
 // This function is converted to a string and becomes the preprocessor
-function preprocessor(source, url, listenerName) {
+function preprocessor(source, url, listenerName, startLine) {
+	console.log(url);
+	console.log(startLine);
+
 	var start_time = (new Date()).getTime();
 
 	if (preprocessor.esprima === undefined) {
@@ -53,6 +56,10 @@ function preprocessor(source, url, listenerName) {
 
 	estraverse.traverse(ast, {
 		enter: function (node, parent) {
+			// if (node.loc) {
+				// node.loc.start.line += startLine + 1;
+				// node.loc.end.line += startLine + 1;
+			// }
 			if ((node.type === "FunctionDeclaration" && node.id.name !== "__profiled__") || node.type === "FunctionExpression") {
 				preprocessor.functionID++;
 				if (node.id)
@@ -132,11 +139,6 @@ function preprocessor(source, url, listenerName) {
 
 	var processed_result = escodegen.generate(ast, {sourceMap: url, sourceMapWithCode: true, sourceContent: source});
 	var processed_source = processed_result.code;
-
-	// console.log(url);
-	// console.log(processed_source + 
-	// 		'\n//@ sourceMappingURL=data:application/json;base64,' + btoa(processed_result.map.toString()) + 
-	// 		'\n//@ sourceURL=' + preprocessor.functionID.toString() + '.js');
 
 	var lastPointIndex = url.lastIndexOf(".");
 	if (lastPointIndex !== -1)
