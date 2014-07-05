@@ -5,6 +5,7 @@
 function preprocessor(source, url, listenerName, startLine) {
 	console.log(url);
 	console.log(startLine);
+	// console.log(source);
 
 	var start_time = (new Date()).getTime();
 
@@ -147,10 +148,10 @@ function preprocessor(source, url, listenerName, startLine) {
 		url = url + '.profiled';
 
 	if (processed_result.map)
-		return processed_source + 
-			'\n//@ sourceMappingURL=data:application/json;base64,' + btoa(processed_result.map.toString()) + 
+		return processed_source +
+			'\n//@ sourceMappingURL=data:application/json;base64,' + btoa(processed_result.map.toString()) +
 			'\n//@ sourceURL=' + url;
-	return '{\n' + prefix + '}\n' + processed_source;// + 
+	return '{\n' + prefix + '}\n' + processed_source;// +
 		'\n//@ sourceURL=' + url;
 }
 
@@ -185,12 +186,15 @@ function preprocessorWithLibs(preprocessor_source, libs) {
 
 
 function reloadWithPreprocessor(injectedScript) {
-	var preprocessor_source = preprocessorWithLibs(preprocessor.toString(), ['esprima.js', 'estraverse.js', 'escodegen.browser.js', 'source-map.js']);
+	var preprocessor = new Profiler();
+	// var preprocessor_source = preprocessorWithLibs(preprocessor.toString(), ['esprima.js', 'estraverse.js', 'escodegen.browser.js', 'source-map.js']);
+	console.log(preprocessor.preprocessor.toString());
+	console.log(preprocessor.injectedScript.toString() + '__beforeAll()');
   	var options = {
     	ignoreCache: true,
     	userAgent: undefined,
-    	injectedScript: undefined,
-    	preprocessingScript: preprocessor_source
+    	injectedScript: preprocessor.injectedScript.toString() + '__beforeAll()',
+    	preprocessingScript: preprocessor.preprocessorWithLibs()
   	};
 
   	chrome.devtools.inspectedWindow.reload(options);
@@ -311,7 +315,7 @@ function refreshTimeline() {
 		if (isException)
 			throw new Error('Eval failed for ' + expr, isException.value);
 		document.getElementById('results_count').innerHTML = 'Total count: ' + report.length.toString();
-		refreshVisual(removePreprocessFromReport(report));	
+		refreshVisual(removePreprocessFromReport(report));
 	}
 	chrome.devtools.inspectedWindow.eval(expr, onEval);
 }
@@ -360,7 +364,7 @@ function switchProfiler() {
 	function onEval(profileEnable, isException) {
 		if (isException)
 			throw new Error('Eval failed for ' + expr, isException.value);
-		
+
 		var newValue = !profileEnable;
 		var newInner = newValue ? 'Disable' : 'Enable';
 
@@ -370,7 +374,7 @@ function switchProfiler() {
 		if (!newValue)
 			refreshTimeline();
 	}
-	chrome.devtools.inspectedWindow.eval(expr, onEval);		
+	chrome.devtools.inspectedWindow.eval(expr, onEval);
 }
 
 
@@ -379,10 +383,10 @@ function clearProfile() {
 	function onEval(res, isException) {
 		if (isException)
 			throw new Error('Eval failed for ' + expr, isException.value);
-		
+
 		refreshTimeline();
 	}
-	chrome.devtools.inspectedWindow.eval(expr, onEval);			
+	chrome.devtools.inspectedWindow.eval(expr, onEval);
 }
 
 
