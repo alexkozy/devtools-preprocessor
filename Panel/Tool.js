@@ -110,7 +110,6 @@ Profiler.prototype = {
 					}
 					idToURL[functionID] = url ? url : '';
 					idToLocation[functionID] = (node.loc.start.line  ? node.loc.start.line : 1) + ',' + (node.loc.start.column ? node.loc.start.column : 1);
-
 					var profiled_ast = esprima.parse(profiled_block);
 					var profiled_function = profiled_ast.body[0].body.body[0];
 					// setup inner profiled function body
@@ -130,7 +129,6 @@ Profiler.prototype = {
 		});
 
 		this.functionID = functionID;
-
 	  	var prefix = '';
 	  	for (id in idToFunctionName) {
 	  		prefix = prefix.concat('window.top.__idToFunctionName[' + id + '] = \'' + idToFunctionName[id] + '\';\n');
@@ -174,11 +172,10 @@ Profiler.prototype = {
 				'\n//@ sourceMappingURL=data:application/json;base64,' + btoa(processed_result.map.toString()) +
 				'\n//@ sourceURL=' + url;
 		return '{\n' + prefix + '}\n' + processed_source;// +
-			//'\n//@ sourceURL=' + url;
+			'\n//@ sourceURL=' + url;
 	},
 
 	injectedScript: function __beforeAll() {
-		/* do-not-preprocess */
   		window.top.__entryTime = window.top.__entryTime || new Float64Array(4 * 4096);
   		window.top.__entryTop = window.top.__entryTop || -1;
   		window.top.__profileFunction = window.top.__profileFunction || new Int16Array(16 * 65536);
