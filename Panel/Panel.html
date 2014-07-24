@@ -8,7 +8,7 @@
 <script src="libs/codemirror/mode/javascript/javascript.js"></script>
 <style>
   .hits {width: 3.2em;}
-  .CodeMirror {border: 1px solid #aaa; height: 600px;}
+  .CodeMirror {border: 1px solid #aaa; height: 100%;}
 </style>
 
 <!-- [START imports] -->
@@ -34,39 +34,39 @@
 <!-- [END imports] -->
 <style shim-shadowdom>
   /* [START styles] */
-  body {
-    font-family: sans-serif;
-  }
-  #navheader {
-    background-color: #56BA89;
-  }
-  .content {
-    padding: 20px;
-  }
-  /* [END styles] */
-  .reload-button, .refresh-button {
-    background: #4285f4;
-    color: #fff;
-  }
-  .reload-button:hover, .refresh-button:hover {
-      background: #2a56c6;
-  }
-  .reload-button::shadow #ripple, .refresh-button::shadow #ripple {
+    body {
+      font-family: sans-serif;
+    }
+    #navheader {
+      background-color: #56BA89;
+    }
+    paper-checkbox {
+      margin-left: 20px;
+      margin-right: 20px;
+    }
+    paper-checkbox::shadow #ink[checked] {
+      color: #4285f4;
+    }   
+    paper-checkbox::shadow #checkbox.checked {
+      border-color: #4285f4;
+    }
+    paper-button {
+      margin-left: 10px;
+      color: #4285f4;
+      fill: #4285f4;
+    }
+    paper-button[raisedButton] {
+      background: #4285f4;
+      color: #fff;
+    }
+    paper-button[raisedButton] #ripple,
+    paper-button[raisedButton]::shadow #ripple {
       color: #2a56c6;
-  }
-  paper-checkbox.blue::shadow #ink[checked] {
-    color: #4285f4;
-  }
-  paper-checkbox.blue::shadow #checkbox.checked {
-    border-color: #4285f4;
-  }
-  paper-checkbox {
-    padding: 20px 20px 20px 0;
-  }
-
-  .float-left {
-  float:left;
-  }
+    }
+    paper-button[raisedButton] #focusBg,
+    paper-button[raisedButton]::shadow #focusBg {
+      background: #3367d6;
+    }
 </style>
 </head>
 <body unresolved>
@@ -80,7 +80,6 @@
       <core-menu>
         <core-item icon="schedule" label="Profiler"><a id="link-profiler" href="#" target="_self"></a></core-item>
         <core-item icon="view-headline" label="Hits counter"><a id="link-hits-counter" href="#" target="_self"></a></core-item>
-        <!-- <core-item label="Live variable"></core-item> -->
       </core-menu>
     </core-header-panel>
     
@@ -89,28 +88,23 @@
     <div class="content">
 
       <div id="profiler-content">
-        <div horizontal layout>
+        <div horizontal layout center>
           <paper-button class="reload-button" label="Reload with instrumentation" raisedbutton=""></paper-button>
           <paper-button class="refresh-button" label="Refresh View" raisedbutton=""></paper-button>
-        </div>
-        
-        <div horizontal="" layout="">
           <paper-checkbox class="enabled-checkbox"></paper-checkbox>
           <div vertical="" layout="">
             <h4>Profiler Enabled</h4>
           </div>
         </div>
-
+        
         <div class="results_count"></div>
         <div class="results"></div>
       </div>
 
       <div id="hits-counter-content">
-        <div horizontal layout>
+        <div horizontal layout center>
           <paper-button class="reload-button" label="Reload with instrumentation" raisedButton></paper-button>
           <paper-button class="refresh-button" label="Refresh View" raisedbutton=""></paper-button>
-        </div>
-        <div horizontal layout>
           <paper-checkbox class="enabled-checkbox"></paper-checkbox>
           <div vertical layout>
             <h4>Hits Counter Enabled</h4>
@@ -147,10 +141,15 @@
               paper-tabs.transparent-teal paper-tab::shadow #ink {
                 color: #00bcd4;
               }
+              
+              h3 {
+                font-size: 16px;
+                font-weight: 400;
+              }
             </style>
             <paper-tabs noink>
               <template repeat="{{report in reports}}">
-                <paper-tab on-click="{{fileClick}}">{{report.total}}:{{report.url}}</paper-tab>
+                <paper-tab on-click="{{fileClick}}"><a title="123">{{report.total}}:{{report.url}}</a></paper-tab>
               </template>
             </paper-tabs>
           </template>
