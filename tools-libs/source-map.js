@@ -1985,7 +1985,6 @@ define('source-map/source-node', ['require', 'exports', 'module' ,  'source-map/
    * map.
    */
   SourceNode.prototype.toStringWithSourceMap = function SourceNode_toStringWithSourceMap(aArgs) {
-    debugger;
     var generated = {
       code: "",
       line: 1,
