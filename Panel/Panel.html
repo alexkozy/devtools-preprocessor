@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+<head>
+<link rel="stylesheet" href="libs/trace-viewer/trace-viewer.css">
+<script src="libs/trace-viewer/trace-viewer.js"></script>
+<script src="libs/codemirror/lib/codemirror.js"></script>
+<link rel="stylesheet" href="libs/codemirror/lib/codemirror.css">
+<script src="libs/codemirror/mode/javascript/javascript.js"></script>
+<style>
+  .hits {width: 3.2em;}
+  .CodeMirror {border: 1px solid #aaa; height: 600px;}
+</style>
+
+<!-- [START imports] -->
+<script 
+  src="../bower_components/platform/platform.js">
+</script>
+<link rel="import" href="../bower_components/polymer/polymer.html">
+<link rel="import" 
+  href="../bower_components/core-toolbar/core-toolbar.html">
+<link rel="import" 
+  href="../bower_components/core-menu/core-menu.html">
+<link rel="import" 
+  href="../bower_components/core-item/core-item.html">
+<link rel="import" 
+  href="../bower_components/core-header-panel/core-header-panel.html">
+<link rel="import" 
+  href="../bower_components/core-drawer-panel/core-drawer-panel.html">
+<link rel="import" 
+  href="../bower_components/core-scaffold/core-scaffold.html">
+<link rel="import" href="../bower_components/paper-button/paper-button.html">
+<link rel="import" href="../bower_components/paper-checkbox/paper-checkbox.html">
+<link rel="import" href="../bower_components/paper-tabs/paper-tabs.html">
+<!-- [END imports] -->
+<style shim-shadowdom>
+  /* [START styles] */
+  body {
+    font-family: sans-serif;
+  }
+  #navheader {
+    background-color: #56BA89;
+  }
+  .content {
+    padding: 20px;
+  }
+  /* [END styles] */
+  .reload-button, .refresh-button {
+    background: #4285f4;
+    color: #fff;
+  }
+  .reload-button:hover, .refresh-button:hover {
+      background: #2a56c6;
+  }
+  .reload-button::shadow #ripple, .refresh-button::shadow #ripple {
+      color: #2a56c6;
+  }
+  paper-checkbox.blue::shadow #ink[checked] {
+    color: #4285f4;
+  }
+  paper-checkbox.blue::shadow #checkbox.checked {
+    border-color: #4285f4;
+  }
+  paper-checkbox {
+    padding: 20px 20px 20px 0;
+  }
+
+  .float-left {
+  float:left;
+  }
+</style>
+</head>
+<body unresolved>
+  <!-- [START html] -->
+  <core-scaffold>
+
+    <core-header-panel navigation="" flex="">
+      <core-toolbar id="navheader">
+        <span>Menu</span>
+      </core-toolbar>
+      <core-menu>
+        <core-item icon="schedule" label="Profiler"><a id="link-profiler" href="#" target="_self"></a></core-item>
+        <core-item icon="view-headline" label="Hits counter"><a id="link-hits-counter" href="#" target="_self"></a></core-item>
+        <!-- <core-item label="Live variable"></core-item> -->
+      </core-menu>
+    </core-header-panel>
+    
+    <span tool="" id="title">Title</span>
+
+    <div class="content">
+
+      <div id="profiler-content">
+        <div horizontal layout>
+          <paper-button class="reload-button" label="Reload with instrumentation" raisedbutton=""></paper-button>
+          <paper-button class="refresh-button" label="Refresh View" raisedbutton=""></paper-button>
+        </div>
+        
+        <div horizontal="" layout="">
+          <paper-checkbox class="enabled-checkbox"></paper-checkbox>
+          <div vertical="" layout="">
+            <h4>Profiler Enabled</h4>
+          </div>
+        </div>
+
+        <div class="results_count"></div>
+        <div class="results"></div>
+      </div>
+
+      <div id="hits-counter-content">
+        <div horizontal layout>
+          <paper-button class="reload-button" label="Reload with instrumentation" raisedButton></paper-button>
+          <paper-button class="refresh-button" label="Refresh View" raisedbutton=""></paper-button>
+        </div>
+        <div horizontal layout>
+          <paper-checkbox class="enabled-checkbox"></paper-checkbox>
+          <div vertical layout>
+            <h4>Hits Counter Enabled</h4>
+          </div>
+        </div>
+
+        <polymer-element name="files-with-hits" assetpath="" attributes="reports">
+          <template>
+            <style>
+              paper-tabs, core-toolbar {
+                background-color: #00bcd4;
+                color: #fff;
+                box-shadow: 0px 3px 2px rgba(0, 0, 0, 0.2);
+              }
+              
+              core-toolbar paper-tabs {
+                box-shadow: none;
+              }
+              
+              paper-tabs[noink][nobar] paper-tab.core-selected {
+                color: #ffff8d;
+              }
+              
+              paper-tabs.transparent-teal {
+                background-color: transparent;
+                color: #00bcd4;
+                box-shadow: none;
+              }
+              
+              paper-tabs.transparent-teal::shadow #selectionBar {
+                background-color: #00bcd4;
+              }
+              
+              paper-tabs.transparent-teal paper-tab::shadow #ink {
+                color: #00bcd4;
+              }
+            </style>
+            <paper-tabs noink>
+              <template repeat="{{report in reports}}">
+                <paper-tab on-click="{{fileClick}}">{{report.total}}:{{report.url}}</paper-tab>
+              </template>
+            </paper-tabs>
+          </template>
+          <script>
+            Polymer('files-with-hits', {
+              ready: function() {
+                this.reports = [];
+              },
+              attributeChanged: function(attrName, oldVal, newVal) {
+                  //var newVal = this.getAttribute(attrName);
+                  console.log(attrName, 'old: ' + oldVal, 'new:', newVal);
+              },
+              fileClick : function(e, details, sender) {
+                debugger;
+                var report = sender.templateInstance.model.report;
+
+                var cm = codeMirror;
+                var doc = cm.getDoc();
+                doc.setValue(unescape(report.source));
+                var max_hits = 0;
+                var report_hits = report.hits;
+                for (var j = 0; j < report_hits.length; ++j)
+                  if (report_hits[j].count > max_hits)
+                    max_hits = report_hits[j].count;
+
+                var mark_count = 100;
+                for (var j = 0; j < report_hits.length; ++j) {
+                  var loc = report_hits[j].loc;
+                  var hits = report_hits[j].count;
+                  cm.markText({line: loc.start.line - 1, ch: loc.start.column}, {line: loc.end.line - 1, ch: loc.end.column}, {className: "mark-" + Math.ceil(hits / max_hits * mark_count)});  
+                }
+
+                function makeMarker(hits) {
+                  var marker = document.createElement("div");
+                  marker.innerHTML = hits.toString();
+                  return marker;
+                }
+
+                for (line in report.lines) {
+                  cm.setGutterMarker(parseInt(line) - 1, "hits", makeMarker(report.lines[line]));
+                } 
+              }
+            });
+          </script>
+        </polymer-element>
+
+        <files-with-hits></files-with-hits>
+        <textarea id="code-view"></textarea>
+      </div>
+
+    </div>
+  </core-scaffold>
+  <!-- [END html] -->
+</body>
+</html>

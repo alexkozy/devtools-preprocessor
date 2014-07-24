@@ -2,12 +2,10 @@ function Tool() {}
 
 Tool.prototype = {
 	_getLib: function(name, path) {
-		console.log('Loading lib: ' + name + '..');
 		var req = new XMLHttpRequest();
 		req.open('GET', path + name, false);
 		req.send(null);
 		if (req.status === 200) {
-			console.log('Lib ' + name + ' loaded');
 			return req.responseText;
 		}
 		else
@@ -19,7 +17,7 @@ Tool.prototype = {
 	},
 
 	preprocessorWithLibs: function() {
-		var LIBS_PATH = 'chrome-extension://' + chrome.runtime.id + '/libs/';
+		var LIBS_PATH = 'chrome-extension://' + chrome.runtime.id + '/tools-libs/';
 		var LIBS_PLACE = '__LIBS__';
 		var prefix = '';
 		var libs = this.requiredLibs();
@@ -36,7 +34,9 @@ Tool.prototype = {
 /**
  * Profiler preprocessor
  */
-function Profiler() {}
+function Profiler() {
+	Tool.call(this);	
+}
 
 Profiler.prototype = {
 	preprocessor: function(source, url, functionName) {
@@ -98,7 +98,6 @@ Profiler.prototype = {
 			enter: function (node, parent) {
 				if ((node.type === "FunctionDeclaration" && node.id.name !== "__profiled__") || node.type === "FunctionExpression") {
 					functionID++;
-					console.log()
 					if (node.id)
 						idToFunctionName[functionID] = node.id.name;
 					else if (node.type === "FunctionExpression" && parent && parent.type === "VariableDeclaration")
@@ -119,7 +118,6 @@ Profiler.prototype = {
 					profiled_function.params = node.params;
 					// setup function ID
 					var function_id_node = profiled_ast.body[0].body.body[1].consequent.body[0].finalizer.body[4].expression.right;
-					console.log(functionID);
 					function_id_node.raw = functionID.toString();
 					function_id_node.value = functionID;
 					// setup alternative function body
@@ -176,6 +174,7 @@ Profiler.prototype = {
 	},
 
 	injectedScript: function __beforeAll() {
+		/* do-not-preprocess */
   		window.top.__entryTime = window.top.__entryTime || new Float64Array(4 * 4096);
   		window.top.__entryTop = window.top.__entryTop || -1;
   		window.top.__profileFunction = window.top.__profileFunction || new Int16Array(16 * 65536);
@@ -201,92 +200,93 @@ Profiler.prototype = {
 Profiler.prototype.__proto__ = Tool.prototype;
 
 /**
- * LiveVariable preprocessor
+ * Hits Counter preprocessor
  */
-function LiveVariable() {}
+function HitsCounter() {
+	Tool.call(this);
+}
 
-LiveVariable.prototype = {
-	preprocessor: function(source, url, functionName) {
-		debugger;
+HitsCounter.prototype = {
+	preprocessor: function (source, url, functionName) {
 		if (!this.libsExported) {
 			__LIBS__;
 			this.libsExported = true;
 		}
 
-		console.log(source, url, functionName);
-
 		this.esprima = this.esprima || esprima;
 		this.estraverse = this.estraverse || estraverse;
 		this.escodegen = this.escodegen || escodegen;
 
+		if (this.lastLocID === undefined) this.lastLocID = 0;
+		var lastLocID = this.lastLocID;
+
 		String.prototype.endsWith = function(suffix) {
-			return this.indexOf(suffix, this.length - suffix.length) !== -1;
+		    return this.indexOf(suffix, this.length - suffix.length) !== -1;
+		};
+		function makeInstrument(id) {
+			var instrument_source = 'window.top.__profileEnable && window.top.__hits[0]++';
+			var instrument = esprima.parse(instrument_source).body[0].expression;
+			var id_property = instrument.right.argument.property;
+			id_property.raw = id.toString();
+			id_property.value = id;
+			return instrument;
 		}
-
-		var ast = esprima.parse(source, {loc: true});
-		estraverse.replace(ast, {
-			enter: function(node, parent) {
-				if (parent.skip) {
-					node.skip = true;
-					return node;
-				}
-				if (parent.type === "AssignmentExpression" && node === parent.left) {
-					node.skip = true;
-					return node;
-				}
-				if ('id' in parent && node === parent.id) {
-					node.skip = true;
-					return node;
-				}
-				if (parent.type === "MemberExpression") {
-					node.skip = true;
-					return node;
-				}
-				if (parent.type === "FunctionDeclaration" && (node !== parent.body && node !== parent.defaults)) {
-					node.skip = true;
-					return node;
-				}
-				if (parent.type === "CallExpression" && node === parent.callee) {
-					node.skip = true;
-					return node;
-				}
-			},
+		function addSourceUrl(location) {
+			location.url = url;
+			return location;
+		}
+		var idToLocation = {};
+		var ast = esprima.parse(source, {loc:true});
+		ast = estraverse.replace(ast, {
 			leave: function (node, parent) {
-				if (node.skip) return node;
-
-				var member_expression = {
-					type: "MemberExpression",
-					computed: false,
-					object: {
-						type: "Identifier",
-						name: "window"
-					},
-					property: {
-						type: "Identifier",
-						name: "__lv"
-					}
-				};
-
-				if (node.type.endsWith("Expression")) {
-					return {type: "CallExpression", callee: member_expression, arguments: [node]};
+				if (node.type === "ReturnStatement" && node.argument === null) {
+				 	++lastLocID;
+				 	idToLocation[lastLocID] = addSourceUrl(node.loc);	
+				 	return { 
+				 		type: "ReturnStatement", argument: { 
+				 			type: "SequenceExpression", expressions: [
+				 				makeInstrument(lastLocID), 
+				 				{ type: "Identifier", name: "undefined" }
+				 			]
+				 		}
+				 	};			
 				}
-				if (node.type === "Identifier") {
-					return {type: "CallExpression", callee: member_expression, arguments: [node]};
+				if (node.type === "EmptyStatement") {
+					++lastLocID;
+					idToLocation[lastLocID] = addSourceUrl(node.loc);			
+					return {type: "ExpressionStatement", expression: makeInstrument(lastLocID), loc: node.loc };			
 				}
-				return node;
+				if (node.type === "Literal" && !parent.type.endsWith("Expression") && !(parent.type === "Property" && parent.key == node)) {
+					++lastLocID;
+					idToLocation[lastLocID] = addSourceUrl(node.loc);
+					return {expressions: [makeInstrument(lastLocID), node], type: "SequenceExpression"};
+				}
+				if (node.type.endsWith("Expression") && node.type != "FunctionExpression" && !parent.type.endsWith("Expression")) {
+					++lastLocID;
+					idToLocation[lastLocID] = addSourceUrl(node.loc);
+					return {expressions: [makeInstrument(lastLocID), node], type: "SequenceExpression", old: node };				
+				}
 			}
 		});
-		var processed_source = escodegen.generate(ast) + '\n//@ sourceURL=foo.js';
-		return processed_source;
+		this.lastLocID = lastLocID;
+		var processed_source = escodegen.generate(ast);
+		var prefix = '';
+	  	for (id in idToLocation)
+	  		prefix = prefix.concat('window.top.__idToLocation[' + id + '] = ' + JSON.stringify(idToLocation[id]) + ';\n');
+	  	prefix = prefix.concat('window.top.__urlToSource[\'' + escape(url) + '\'] = \'' + escape(source) + '\';\n');
+	  	return '{\n' + prefix + '}\n' + processed_source;		
 	},
 
-	injectedScript: function __beforeAll () {
+	injectedScript: function __beforeAll() {
 		/* do-not-preprocess */
-		window.__lv =  function(value){ console.log(value); return value; }
+		window.top.__hits = window.top.__hits || new Int32Array(1024 * 1024);
+		window.top.__profileEnable = window.top.__profileEnable !== undefined ? window.top.__profileEnable : false;
+		window.top.__idToLocation = window.top.__idToLocation || {};
+		window.top.__urlToSource = window.top.__urlToSource || {};
 	},
 
 	requiredLibs: function() {
 		return ['esprima.js', 'estraverse.js', 'escodegen.browser.js'];
 	}
 }
-LiveVariable.prototype.__proto__ = Tool.prototype;
+HitsCounter.prototype.__proto__ = Tool.prototype;
