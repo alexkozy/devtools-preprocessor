@@ -91,8 +91,11 @@ Profiler.prototype = {
 			}\n\
 		';
 
-		if (url.length < 1)
-			url = 'data:application/javascript;base64,' + btoa(source);
+		var is_data_url = false;
+		if (url.length < 1) {
+			is_data_url = true;
+			url = 'data:application/javascript;base64,' + btoa(escape(source));
+		}
 
 		estraverse.traverse(ast, {
 			enter: function (node, parent) {
@@ -160,16 +163,21 @@ Profiler.prototype = {
 		var processed_source = processed_result.code;
 
 		var lastPointIndex = url.lastIndexOf(".");
-		if (lastPointIndex !== -1)
-			url = url.substr(0, lastPointIndex) + '.profiled.' + url.substr(lastPointIndex + 1);
-		else
-			url = url + '.profiled';
+		if (!is_data_url) {
+			if (lastPointIndex !== -1)
+				url = url.substr(0, lastPointIndex) + '.profiled.' + url.substr(lastPointIndex + 1);
+			else
+				url = url + '.profiled';
+		}
 
-		if (processed_result.map)
-			return processed_source +
-				'\n//@ sourceMappingURL=data:application/json;base64,' + btoa(processed_result.map.toString()) +
-				'\n//@ sourceURL=' + url;
-		return '{\n' + prefix + '}\n' + processed_source;// +
+		try {
+			if (processed_result.map)
+				return processed_source +
+					'\n//@ sourceMappingURL=data:application/json;base64,' + btoa(processed_result.map.toString()) +
+					'\n//@ sourceURL=' + url;
+		} catch (e) {
+		}
+		return '{\n' + prefix + '}\n' + processed_source +
 			'\n//@ sourceURL=' + url;
 	},
 

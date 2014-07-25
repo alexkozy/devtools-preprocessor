@@ -8,8 +8,7 @@
   "web_accessible_resources":
     [
       "*",
-      "Panel/jquery.js",
-      "libs/*",
-      "polymer/*"
+      "tools-libs/*",
+      "Panel/libs/*"
     ]
 }

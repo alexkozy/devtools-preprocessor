@@ -56,6 +56,7 @@ ProfilerView.prototype = {
         var model = new tracing.TraceModel();
         model.importTraces([data]);
 
+        tracing.constants.HEADING_WIDTH = 100;
         var viewEl = this.div_.querySelector('.results');
         viewEl.innerHTML = "";
         tvcm.ui.decorate(viewEl, tracing.TimelineView);
