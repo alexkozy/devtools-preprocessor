@@ -40,9 +40,6 @@ function Profiler() {
 
 Profiler.prototype = {
 	preprocessor: function(source, url, functionName) {
-
-  		// console.log(url);
-
 		var start_time = (new Date()).getTime();
 
 		if (!this.libsExported) {

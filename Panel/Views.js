@@ -35,7 +35,6 @@ function ProfilerView(div) {
 
 ProfilerView.prototype = {
     showReport: function(report) {
-        debugger;
         var data = [];
 
         var kt = 1000.0;
