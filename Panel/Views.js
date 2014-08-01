@@ -56,7 +56,7 @@ ProfilerView.prototype = {
         var model = new tracing.TraceModel();
         model.importTraces([data]);
 
-        var viewEl = this.div_.querySelector('.results');
+        var viewEl = document.querySelector('x-timeline-view');
         viewEl.innerHTML = "";
         tvcm.ui.decorate(viewEl, tracing.TimelineView);
         viewEl.model = model;
