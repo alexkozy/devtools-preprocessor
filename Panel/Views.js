@@ -35,6 +35,7 @@ function ProfilerView(div) {
 
 ProfilerView.prototype = {
     showReport: function(report) {
+        debugger;
         var data = [];
 
         var kt = 1000.0;
@@ -56,7 +57,6 @@ ProfilerView.prototype = {
         var model = new tracing.TraceModel();
         model.importTraces([data]);
 
-        tracing.constants.HEADING_WIDTH = 100;
         var viewEl = this.div_.querySelector('.results');
         viewEl.innerHTML = "";
         tvcm.ui.decorate(viewEl, tracing.TimelineView);

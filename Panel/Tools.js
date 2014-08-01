@@ -40,6 +40,9 @@ function Profiler() {
 
 Profiler.prototype = {
 	preprocessor: function(source, url, functionName) {
+
+  		// console.log(url);
+
 		var start_time = (new Date()).getTime();
 
 		if (!this.libsExported) {
@@ -52,11 +55,15 @@ Profiler.prototype = {
 		this.escodegen = this.escodegen || escodegen;
 		this.sourceMap = this.sourceMap || window.sourceMap;
 
-		if (this.functionID === undefined) this.functionID = 0;
+		if (this.functionID === undefined) this.functionID = 1;
+		if (this.sourceID === undefined) this.sourceID = 1;
+
 		var functionID = this.functionID;
 		var idToFunctionName = {};
-		var idToLocation = {};
-		var idToURL = {};
+		var idToRow = {};
+		var idToCol = {};
+
+		var sourceID = ++this.sourceID;
 
 		String.prototype.startsWith = function (str){
 		    return this.indexOf(str) == 0;
@@ -91,10 +98,40 @@ Profiler.prototype = {
 			}\n\
 		';
 
-		var is_data_url = false;
-		if (url.length < 1) {
-			is_data_url = true;
-			url = 'data:application/javascript;base64,' + btoa(escape(source));
+		function findMagicComment(content, name) {
+			var pos = content.length;
+			while (true) {
+				pos = content.lastIndexOf(name, pos);
+				if (pos === -1) return '';
+				if (pos < 4) return '';
+				pos -= 4;
+				if (content.charAt(pos) != '/' || content.charAt(pos + 1) != '/') continue;
+				if (content.charAt(pos + 2) != '#' && content.charAt(pos + 2) != '@') continue;
+				if (content.charAt(pos + 3) != ' ' && content.charAt(pos + 3) != '\t') continue;
+				var equalSignPos = pos + 4 + name.length;
+				if (equalSignPos < content.length && content.charAt(equalSignPos) != '=') continue;
+				break;
+			}
+
+			var urlPos = equalSignPos + 1;
+			var match = content.substring(urlPos);
+			var newLine = match.indexOf('\n');
+			if (newLine !== -1)
+				match = match.substring(0, newLine);
+			match = match.trim();
+			var disallowedChars = '"\' \t';
+			for (var i = 0; i < match.length; ++i)
+				if (disallowedChars.indexOf(match.charAt(i)) !== -1)
+					return '';
+			return match;
+		}
+
+		var hasURL = true;
+		if (!url)
+			url = findMagicComment(source, 'sourceURL');
+		if (!url) {
+			hasURL = false;
+			url = '(anonymous:' + sourceID + ')';
 		}
 
 		estraverse.traverse(ast, {
@@ -110,8 +147,10 @@ Profiler.prototype = {
 					else {
 						idToFunctionName[functionID] = '(anonymous: ' + functionID.toString() + ')';
 					}
-					idToURL[functionID] = url ? url : '';
-					idToLocation[functionID] = (node.loc.start.line  ? node.loc.start.line : 1) + ',' + (node.loc.start.column ? node.loc.start.column : 1);
+
+					idToRow[functionID] = node.loc.start.line  ? node.loc.start.line : 1;
+					idToCol[functionID] = node.loc.start.column ? node.loc.start.column : 1;
+
 					var profiled_ast = esprima.parse(profiled_block);
 					var profiled_function = profiled_ast.body[0].body.body[0];
 					// setup inner profiled function body
@@ -128,77 +167,69 @@ Profiler.prototype = {
 				}
 			}
 		});
-
 		this.functionID = functionID;
-	  	var prefix = '';
+
+	
+	  	var prefix = 'window.top.__sourceToUrl[' + sourceID + '] = \'' + escape(url) + '\';\n';
 	  	for (id in idToFunctionName) {
 	  		prefix = prefix.concat('window.top.__idToFunctionName[' + id + '] = \'' + idToFunctionName[id] + '\';\n');
-	  		prefix = prefix.concat('window.top.__idToLocation[' + id + '] = \'' + idToLocation[id] + '\';\n');
-	  		prefix = prefix.concat('window.top.__idToURL[' + id + '] =\'' + idToURL[id] + '\';\n');
-	  		if (!url.startsWith('http://'))
-	  			prefix = prefix.concat('window.top.__idToHost[' + id + '] = \'http://\' + window.location.host + \'/\';\n');
-	  		else
-	  			prefix = prefix.concat('window.top.__idToHost[' + id + '] = \'\';\n');
+	  		prefix = prefix.concat('window.top.__idToRow[' + id + '] = ' + idToRow[id] + ';\n');
+	  		prefix = prefix.concat('window.top.__idToCol[' + id + '] = ' + idToCol[id] + ';\n');
+	  		prefix = prefix.concat('window.top.__idToSource[' + id + '] = ' + sourceID + ';\n');
 	  	}
-
-	  	var end_time = (new Date()).getTime();
-	  	var total_time = (end_time - start_time);
-
-	  	if (total_time > 0.0) {
-		  	prefix += '\
-		  		++window.top.__profileLast;\n\
-				window.top.__profileFinish[window.top.__profileLast] = window.performance.now();\n\
-				window.top.__profileStart[window.top.__profileLast] = window.top.__profileFinish[window.top.__profileLast] - ' + total_time.toString() + ';\n\
-				window.top.__profileStack[window.top.__profileLast] = -100;\n\
-				window.top.__profileFunction[window.top.__profileLast] = -1;\n\
-			';
-		}
 
 		var prefix_ast = esprima.parse(prefix);
 		var prefix_body = prefix_ast.body;
 
 		ast.body = prefix_body.concat(ast.body);
 
-		var processed_result = escodegen.generate(ast, {sourceMap: url, sourceMapWithCode: true, sourceContent: source});
-		var processed_source = processed_result.code;
+		var processed_result;
+		if (hasURL)
+			processed_result = escodegen.generate(ast, {sourceMap: url, sourceMapWithCode: true});
+		else
+			processed_result = escodegen.generate(ast, {sourceMap: url, sourceMapWithCode: true, sourceContent: source});
+		
+	  	var end_time = (new Date()).getTime();
+	  	var total_time = (end_time - start_time);
+	  	prefix += '\
+			window.top.__profileStart[window.top.__profileLast] = window.top.__profileFinish[window.top.__profileLast] - ' + total_time.toString() + ';\n\
+		';
 
-		var lastPointIndex = url.lastIndexOf(".");
-		if (!is_data_url) {
-			if (lastPointIndex !== -1)
-				url = url.substr(0, lastPointIndex) + '.profiled.' + url.substr(lastPointIndex + 1);
-			else
-				url = url + '.profiled';
-		}
-
-		try {
-			if (processed_result.map)
-				return processed_source +
-					'\n//@ sourceMappingURL=data:application/json;base64,' + btoa(processed_result.map.toString()) +
-					'\n//@ sourceURL=' + url;
-		} catch (e) {
-		}
-		return '{\n' + prefix + '}\n' + processed_source +
-			'\n//@ sourceURL=' + url;
+		var processed_source = '{\n' + prefix + '}\n' + processed_result.code;
+		if (processed_result.map)
+			return processed_source + '\n//# sourceMappingURL=data:application/json,' + encodeURIComponent(processed_result.map.toString());
+		return processed_source;
 	},
 
 	injectedScript: function __beforeAll() {
 		/* do-not-preprocess */
-  		window.top.__entryTime = window.top.__entryTime || new Float64Array(4 * 4096);
+		// TODO: replace magic number with real value from first special instrument
+		var MAX_STACK_SIZE = 1024;
+  		var MAX_FUNCTION_COUNT = 32 * 1024;
+  		var MAX_PROFILE_LENGTH = 1024 * 1024;
+
+  		window.top.__entryTime = window.top.__entryTime || new Float64Array(MAX_STACK_SIZE);
   		window.top.__entryTop = window.top.__entryTop || -1;
-  		window.top.__profileFunction = window.top.__profileFunction || new Int16Array(16 * 65536);
-  		window.top.__profileStart = window.top.__profileStart || new Float64Array(16 * 65536);
-  		window.top.__profileFinish = window.top.__profileFinish || new Float64Array(16 * 65536);
+
+  		window.top.__profileFunction = window.top.__profileFunction || new Int16Array(MAX_PROFILE_LENGTH);
+  		window.top.__profileStart = window.top.__profileStart || new Float64Array(MAX_PROFILE_LENGTH);
+  		window.top.__profileFinish = window.top.__profileFinish || new Float64Array(MAX_PROFILE_LENGTH);
+  		window.top.__profileStack = window.top.__profileStack || new Int16Array(MAX_PROFILE_LENGTH);
   		window.top.__profileLast = window.top.__profileLast || -1;
-  		window.top.__profileStack = window.top.__profileStack || new Int16Array(16 * 65536);
-  		window.top.__idToFunctionName = window.top.__idToFunctionName || {};
-  		window.top.__idToLocation = window.top.__idToLocation || {};
-  		window.top.__idToHost = window.top.__idToHost || {};
-  		window.top.__idToURL = window.top.__idToURL || {};
+
   		window.top.__profileEnable = window.top.__profileEnable !== undefined ? window.top.__profileEnable : false;
-		window.top.__idToFunctionName[-1] = 'preprocess';
-		window.top.__idToURL[-1] = 'preprocess';
-		window.top.__idToLocation[-1] = '1,1';
-		window.top.__idToHost[-1] = '';
+  		window.top.__idToFunctionName = window.top.__idToFunctionName || {};
+
+  		window.top.__idToRow = window.top.__idToRow || new Int16Array(MAX_FUNCTION_COUNT);
+  		window.top.__idToCol = window.top.__idToCol || new Int16Array(MAX_FUNCTION_COUNT);	
+  		window.top.__idToSource = window.top.__idToSource || new Int16Array(MAX_FUNCTION_COUNT);
+  		window.top.__sourceToUrl = window.__sourceToUrl || [];
+
+		window.top.__idToFunctionName[0] = 'preprocess';
+		window.top.__idToRow[0] = 1;
+		window.top.__idToCol[0] = 1;
+		window.top.__idToSource[0] = 0;
+		window.top.__sourceToUrl[0] = 'preprocessor';
 	},
 
 	requiredLibs: function() {

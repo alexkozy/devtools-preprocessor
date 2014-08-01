@@ -28,9 +28,11 @@ ProfilerModel.prototype = {
         var profileLast = window.top.__profileLast;
         var profileStack = window.top.__profileStack;
         var idToFunctionName = window.top.__idToFunctionName;
-        var idToLocation = window.top.__idToLocation;
-        var idToURL = window.top.__idToURL;
-        var idToHost = window.top.__idToHost;
+        var idToRow = window.top.__idToRow;
+        var idToCol = window.top.__idToCol;
+
+        var idToSource = window.top.__idToSource;
+        var sourceToURL = window.top.__sourceToUrl;
 
         var report = [];
         for (var i = 0; i <= profileLast; ++i) {
@@ -40,9 +42,9 @@ ProfilerModel.prototype = {
                 finish: profileFinish[i],
                 stack: profileStack[i],
                 args: {
-                    url: idToHost[profileFunction[i]] + idToURL[profileFunction[i]],
-                    line: parseInt(idToLocation[profileFunction[i]].split(',')[0]),
-                    column: parseInt(idToLocation[profileFunction[i]].split(',')[1])
+                    url: unescape(sourceToURL[idToSource[profileFunction[i]]]),
+                    line: idToRow[profileFunction[i]],
+                    column: idToCol[profileFunction[i]]
                 }
             });
         }
