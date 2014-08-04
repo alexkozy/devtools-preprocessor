@@ -13729,10 +13729,10 @@ tvcm.exportTo('tracing', function() {
 
     getWorldXFromEvent_: function(e) {
       var pixelRatio = window.devicePixelRatio || 1;
-      var modelTrackContainer = this.viewport.modelTrackContainer;
-      var viewX = (e.clientX -
-                   modelTrackContainer.offsetLeft -
-                   constants.HEADING_WIDTH) * pixelRatio;
+      var canvas = this.viewport_.modelTrackContainer.canvas;
+      var worldOffset = canvas.getBoundingClientRect().left;
+      var viewX = (e.clientX - worldOffset) * pixelRatio;
+
       return this.viewport.currentDisplayTransform.xViewToWorld(viewX);
     },
 
@@ -19383,14 +19383,12 @@ tvcm.exportTo('tracing', function() {
       var hiY = Math.max(eDown.clientY, e.clientY);
       var loX = Math.min(eDown.clientX, e.clientX);
       var hiX = Math.max(eDown.clientX, e.clientX);
-      var tracksContainerBoundingRect =
-          this.modelTrackContainer_.getBoundingClientRect();
-      var topBoundary = tracksContainerBoundingRect.height;
 
       // Convert to worldspace.
       var canv = this.modelTrackContainer_.canvas;
-      var loVX = loX - canv.offsetLeft;
-      var hiVX = hiX - canv.offsetLeft;
+      var worldOffset = canv.getBoundingClientRect().left;
+      var loVX = loX - worldOffset;
+      var hiVX = hiX - worldOffset;
 
       // Figure out what has been selected.
       var selection = new Selection();
