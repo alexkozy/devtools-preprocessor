@@ -79,8 +79,9 @@ Profiler.prototype = {
 				function __profiled__(/*here function arguments*/) {\n\
 					// here function body\n\
 				}\n\
-				if (window.top.__profileEnable) {\n\
+				if (window.top.__profileEnable && window.top.__profileCalls + 1 < window.top.__MAX_PROFILE_LENGTH) {\n\
 					try {\n\
+						++window.top.__profileCalls;\n\
 						window.top.__entryTime[++window.top.__entryTop] = window.top.performance.now();\n\
 						return __profiled__.apply(this, arguments);\n\
 					} finally {\n\
@@ -208,11 +209,13 @@ Profiler.prototype = {
   		window.top.__entryTime = window.top.__entryTime || new Float64Array(MAX_STACK_SIZE);
   		window.top.__entryTop = window.top.__entryTop || -1;
 
+  		window.top.__MAX_PROFILE_LENGTH = MAX_PROFILE_LENGTH;
   		window.top.__profileFunction = window.top.__profileFunction || new Int16Array(MAX_PROFILE_LENGTH);
   		window.top.__profileStart = window.top.__profileStart || new Float64Array(MAX_PROFILE_LENGTH);
   		window.top.__profileFinish = window.top.__profileFinish || new Float64Array(MAX_PROFILE_LENGTH);
   		window.top.__profileStack = window.top.__profileStack || new Int16Array(MAX_PROFILE_LENGTH);
   		window.top.__profileLast = window.top.__profileLast || -1;
+  		window.top.__profileCalls = window.top.__profileCalls || -1;
 
   		window.top.__profileEnable = window.top.__profileEnable !== undefined ? window.top.__profileEnable : false;
   		window.top.__idToFunctionName = window.top.__idToFunctionName || {};
