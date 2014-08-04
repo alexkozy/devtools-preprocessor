@@ -52,6 +52,7 @@ ProfilerView.prototype = {
         }
 
         this.div_.querySelector('.results_count').innerHTML = 'Total count: ' + report.length;
+        tracing.constants.HEADING_WIDTH = 40;
 
         var model = new tracing.TraceModel();
         model.importTraces([data]);
