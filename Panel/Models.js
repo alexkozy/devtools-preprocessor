@@ -1,7 +1,55 @@
 function Model() {}
 
 Model.prototype = {
+    _evalFunctionInFrame: function(frameURL, func) {
+        return new StdPromise(function(resolve, reject){
+            var expr = func.toString() + '\n' + func.name + '();';
+            function onEval(result, isException) {
+                if (isException)
+                    reject(Error('Eval failed for ' + expr, isException.value));
+                resolve(result);
+            }
+            if (!!frameURL)
+                chrome.devtools.inspectedWindow.eval(expr, {frame: {url: frameURL}}, onEval);
+            else
+                chrome.devtools.inspectedWindow.eval(expr, onEval);            
+        });
+    },
+
+    _getReportPromise: function(frameURL) {
+        return new StdPromise(function(resolve, reject) {
+            var expr = this._getReport.toString() + '\ninjectedGetReport()';
+            function onEval(report, isException) {
+                if (isException)
+                    reject(Error('Eval failed for ' + expr, isException.value));
+                resolve(report);
+            }
+            if (!!frameURL)
+                chrome.devtools.inspectedWindow.eval(expr, {frame: {url: frameURL, securityOrigin: origin }}, onEval);
+            else
+                chrome.devtools.inspectedWindow.eval(expr, onEval);
+        });
+    },
+
+    _getFramesPromise: function(frameURL) {
+        return new StdPromise(function(resolve, reject) {
+            var expr = this._getFrames.toString() + "\ninjectedGetFrames()";
+            function onEval(urls, isException) {
+                if (isException)
+                    reject(Error('Eval failed for ' + expr, isException.value));
+                resolve(urls);
+            }
+            if (!!frameURL)
+                chrome.devtools.inspectedWindow.eval(expr, {frame: {url: frameURL, securityOrigin: origin }}, onEval);
+            else
+                chrome.devtools.inspectedWindow.eval(expr, onEval);
+        });
+    },
+
+    
     getReport: function(callback) {
+        // this._evalFunctionInFrame(undefined, )
+
         var expr = this._getReport.toString() + '\ninjectedGetReport()';
         var myself = this;
         function onEval(report, isException) {
@@ -10,6 +58,84 @@ Model.prototype = {
             callback(myself._process(report));
         }
         chrome.devtools.inspectedWindow.eval(expr, onEval);
+    },
+
+    getFullReport: function(urls) {
+        var myself = this;
+        var promises = urls.map(function(el){
+            return myself._evalFunctionInFrame(el, myself._getReport);
+        });
+        return StdPromise.all(promises).then(function(reports){
+            function getSingleArray(arrays) {
+                var output = [];
+                for (var i = 0; i < arrays.length; ++i) {
+                    if (Array.isArray(arrays[i]))
+                        output = output.concat(getSingleArray(arrays[i]));
+                    else
+                        output = output.concat([arrays[i]]);
+                }
+                return output;
+            }
+            var report = getSingleArray(reports);
+            return myself._process(report);            
+        });
+    },
+
+    _getFrameReport: function(frameURL) {
+        return new StdPromise(function(resolve, reject){
+            this._evalFunctionInFrame(frameURL, this._getReport).then(function(response) {
+                var report = response;
+                this._evalFunctionInFrame(frameURL, this._getFrames).then(function(response) {
+                    var urls = reponse;
+
+
+                    chrome.devtools.inspectedWindow.getResources(function(resources){
+                        resources.foreach(function(resource) {
+                            urls.foreach(function(url){
+                                if (resource.url.indexOf(url) !== -1) {
+                                    url = resource.url;
+                                }
+                            });
+                        });
+                    });
+                    for (var i = 0; i < urls.length; ++i) {
+
+                    }
+                    // call assync get resources and replace all found by resource url
+
+                }, function(error){
+                    reject(error);
+                });
+
+            }).catch(function(error) {
+                console.error('Error!', error);
+            });
+        });
+    },
+
+    _visitFrame: function(url, resources) {
+        var myself = this;
+        return new StdPromise(function(resolve, reject){
+            myself._evalFunctionInFrame(url, myself._getFrames).then(function(urls){
+                resolve(urls);
+
+                // if (urls.length === 0) {
+                //     resolve([url]);
+                // } else {
+                //     var promises = urls.map(function(el){
+                //         for (var i = 0; i < resources.length; ++i)
+                //             if (resources[i].url.indexOf(el) !== -1)
+                //                 return myself._visitFrame.call(myself, resources[i].url, resources);
+                //         return null;
+                //     }).filter(function(el){
+                //         return el != null;
+                //     });
+                //     StdPromise.all(promises).then(function(values) {
+                //         resolve([url].concat(values));
+                //     });
+                // }
+            });
+        });
     },
 
     getReportFromAllFrames: function(callback) {
@@ -31,10 +157,10 @@ Model.prototype = {
     _getFramesURL: function(url, callback) {
         var expr = this._getFrames.toString() + '\ninjectedGetFrames()';
         var myself = this;
-        function onEval(urls, isException) {
+        function onEval(srcs, isException) {
             if (isException)
                 throw new Error('Eval failed for ' + expr, isException.value);
-            callback(urls);            
+            callback(srcs);            
         }
         if (!!url) {
             var options = {
@@ -49,9 +175,18 @@ Model.prototype = {
         }
     },
 
-    _processURLs: function(urls, callback) {
+    _processURLs: function(srcs, callback) {
         var resourceURLs = '';
-        
+        chrome.devtools.inspectedWindow.getResources(function(resources){
+        resources.foreach(function(resource){
+            // TODO: optimization O(n^2) :(
+            srcs.foreach(function(src) {
+                if (resource.url.indexOf(src) !== -1) {
+                    // magic;
+                }
+            });
+        });
+    });
     },
 
     _getFrames: function injectedGetFrames() {
@@ -67,17 +202,17 @@ function ProfilerModel() {
 
 ProfilerModel.prototype = {
     _getReport: function injectedGetReport() {
-        var profileFunction = window.top.__profileFunction;
-        var profileStart = window.top.__profileStart;
-        var profileFinish = window.top.__profileFinish;
-        var profileLast = window.top.__profileLast;
-        var profileStack = window.top.__profileStack;
-        var idToFunctionName = window.top.__idToFunctionName;
-        var idToRow = window.top.__idToRow;
-        var idToCol = window.top.__idToCol;
+        var profileFunction = window.__profileFunction;
+        var profileStart = window.__profileStart;
+        var profileFinish = window.__profileFinish;
+        var profileLast = window.__profileLast;
+        var profileStack = window.__profileStack;
+        var idToFunctionName = window.__idToFunctionName;
+        var idToRow = window.__idToRow;
+        var idToCol = window.__idToCol;
 
-        var idToSource = window.top.__idToSource;
-        var sourceToURL = window.top.__sourceToUrl;
+        var idToSource = window.__idToSource;
+        var sourceToURL = window.__sourceToUrl;
 
         var report = [];
         for (var i = 0; i <= profileLast; ++i) {

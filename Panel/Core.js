@@ -23,6 +23,34 @@ Core.prototype = {
             view.refresh();
         });
 
+        if (view.div.querySelector('.test-button')) {
+            view.div.querySelector('.test-button').addEventListener('click', function() {
+
+                chrome.devtools.inspectedWindow.getResources(function(resources){
+                    console.log(resources);
+
+                    view.model_._visitFrame(undefined, resources).then(function(urls){
+                        function getSingleArray(arrays) {
+                            var output = [];
+                            for (var i = 0; i < arrays.length; ++i) {
+                                if (Array.isArray(arrays[i]))
+                                    output = output.concat(getSingleArray(arrays[i]));
+                                else
+                                    output = output.concat([arrays[i]]);
+                            }
+                            return output;
+                        }
+
+                        urls = getSingleArray(urls);
+
+                        view.model_.getFullReport([undefined].concat(urls)).then(function(reports){
+                            console.log(reports);
+                        });
+                    });
+                });
+            });
+        }
+
         view.div.querySelector('.enabled-checkbox').addEventListener('change', function() {
             var newValue = view.div.querySelector('.enabled-checkbox').checked;
             var expr = 'window.top.__profileEnable = ' + newValue.toString();

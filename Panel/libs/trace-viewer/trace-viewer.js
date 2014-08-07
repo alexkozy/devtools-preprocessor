@@ -8,6 +8,8 @@
  * Do not edit directly.
  */
 
+window.StdPromise = window.Promise;
+
 window.FLATTENED = {};
 window.FLATTENED_RAW_SCRIPTS = {};
 window.FLATTENED['tvcm'] = true;

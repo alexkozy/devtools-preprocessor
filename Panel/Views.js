@@ -5,10 +5,26 @@ function View(div) {
 View.prototype = {
     refresh: function() {
         var myself = this;
-        function processReport(report) {
-            myself.showReport(report);            
-        }
-        this.model_.getReport(processReport);
+        chrome.devtools.inspectedWindow.getResources(function(resources){
+            myself.model_._visitFrame(undefined, resources).then(function(urls){
+                function getSingleArray(arrays) {
+                    var output = [];
+                    for (var i = 0; i < arrays.length; ++i) {
+                        if (Array.isArray(arrays[i]))
+                            output = output.concat(getSingleArray(arrays[i]));
+                        else
+                            output = output.concat([arrays[i]]);
+                    }
+                    return output;
+                }
+                urls = getSingleArray(urls);
+                myself.model_.getFullReport([undefined].concat(urls)).then(function(reports){
+                    debugger;
+                    myself.showReport(reports);
+                });
+            });
+        });
+
     },
 
     set div(v) {
