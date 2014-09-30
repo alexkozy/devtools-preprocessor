@@ -8,17 +8,8 @@
     "description": "Simple profiler and code coverage example",
     "devtools_page": "chrome-preprocessor.html",
     "manifest_version": 2,
-    "content_security_policy": "script-src 'self' 'unsafe-eval'; object-src 'self' ; frame-src 'self' data:",
-    "web_accessible_resources":
-    [
-      "*",
-      "tools-libs/*",
-      "Panel/libs/*"
-    ],
     "permissions": [
-        "tabs", 
-        "http://*/*",
-        "https://*/*"
+        "tabs"
     ],
     "background": {
         "scripts": [
