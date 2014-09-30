@@ -1,0 +1,21 @@
+{
+  "name": "devtools-preprocessor",
+  "version": "0.0.1",
+  "homepage": "https://github.com/ak239/devtools-preprocessor",
+  "authors": [
+    "Aleksey Kozyatinskiy <ak239spb@gmail.com>"
+  ],
+  "private": true,
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "polymer": "Polymer/polymer#~0.4.1",
+    "core-elements": "Polymer/core-elements#~0.4.1",
+    "paper-elements": "Polymer/paper-elements#~0.4.1"
+  }
+}
