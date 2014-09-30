@@ -40,14 +40,14 @@ ProfilerView.prototype = {
         var kt = 1000.0;
         for (var i = 0; i < report.length; ++i) {
             data.push({
-                "name": report[i].name,
+                "name": report[i].name ? report[i].name : '',
                 "cat" : "PERF",
                 ph: "X",
                 ts: report[i].correct_start * kt,
                 dur: (report[i].correct_finish - report[i].correct_start) * kt,
                 pid: 0,
                 tid: report[i].stack,
-                args: report[i].args
+                args: report[i].name ? report[i].args : undefined
             });
         }
 
@@ -83,6 +83,7 @@ function HitsCounterView(div) {
 
 HitsCounterView.prototype = {
     showReport: function(report) {
+        debugger;
         /**
             report is array with objects:
             {

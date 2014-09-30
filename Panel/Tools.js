@@ -168,7 +168,8 @@ Profiler.prototype = {
 		this.functionID = functionID;
 
 	
-	  	var prefix = 'window.__sourceToUrl[' + sourceID + '] = \'' + escape(url) + '\';\n';
+	  	var prefix = __beforeAll.toString() + '\n__beforeAll();\n';
+	  	prefix += 'window.__sourceToUrl[' + sourceID + '] = \'' + escape(url) + '\';\n';
 	  	for (id in idToFunctionName) {
 	  		prefix = prefix.concat('window.__idToFunctionName[' + id + '] = \'' + idToFunctionName[id] + '\';\n');
 	  		prefix = prefix.concat('window.__idToRow[' + id + '] = ' + idToRow[id] + ';\n');
@@ -197,6 +198,39 @@ Profiler.prototype = {
 		if (processed_result.map)
 			return processed_source + '\n//# sourceMappingURL=data:application/json,' + encodeURIComponent(processed_result.map.toString());
 		return processed_source;
+
+		function __beforeAll() {
+			/* do-not-preprocess */
+			// TODO: replace magic number with real value from first special instrument
+			var MAX_STACK_SIZE = 1024;
+	  		var MAX_FUNCTION_COUNT = 32 * 1024;
+	  		var MAX_PROFILE_LENGTH = 1024 * 1024;
+
+	  		window.__entryTime = window.__entryTime || new Float64Array(MAX_STACK_SIZE);
+	  		window.__entryTop = window.__entryTop || -1;
+
+	  		window.__MAX_PROFILE_LENGTH = MAX_PROFILE_LENGTH;
+	  		window.__profileFunction = window.__profileFunction || new Int16Array(MAX_PROFILE_LENGTH);
+	  		window.__profileStart = window.__profileStart || new Float64Array(MAX_PROFILE_LENGTH);
+	  		window.__profileFinish = window.__profileFinish || new Float64Array(MAX_PROFILE_LENGTH);
+	  		window.__profileStack = window.__profileStack || new Int16Array(MAX_PROFILE_LENGTH);
+	  		window.__profileLast = window.__profileLast || -1;
+	  		window.__profileCalls = window.__profileCalls || -1;
+
+	  		window.__profileEnable = window.__profileEnable !== undefined ? window.__profileEnable : false;
+	  		window.__idToFunctionName = window.__idToFunctionName || {};
+
+	  		window.__idToRow = window.__idToRow || new Int16Array(MAX_FUNCTION_COUNT);
+	  		window.__idToCol = window.__idToCol || new Int16Array(MAX_FUNCTION_COUNT);	
+	  		window.__idToSource = window.__idToSource || new Int16Array(MAX_FUNCTION_COUNT);
+	  		window.__sourceToUrl = window.__sourceToUrl || [];
+
+			window.__idToFunctionName[0] = 'preprocess';
+			window.__idToRow[0] = 1;
+			window.__idToCol[0] = 1;
+			window.__idToSource[0] = 0;
+			window.__sourceToUrl[0] = 'preprocessor';
+		}
 	},
 
 	injectedScript: function __beforeAll() {
@@ -263,7 +297,7 @@ HitsCounter.prototype = {
 		    return this.indexOf(suffix, this.length - suffix.length) !== -1;
 		};
 		function makeInstrument(id) {
-			var instrument_source = 'window.top.__profileEnable && window.top.__hits[0]++';
+			var instrument_source = 'window.__profileEnable && window.__hits[0]++';
 			var instrument = esprima.parse(instrument_source).body[0].expression;
 			var id_property = instrument.right.argument.property;
 			id_property.raw = id.toString();
@@ -311,17 +345,17 @@ HitsCounter.prototype = {
 		var processed_source = escodegen.generate(ast);
 		var prefix = '';
 	  	for (id in idToLocation)
-	  		prefix = prefix.concat('window.top.__idToLocation[' + id + '] = ' + JSON.stringify(idToLocation[id]) + ';\n');
-	  	prefix = prefix.concat('window.top.__urlToSource[\'' + escape(url) + '\'] = \'' + escape(source) + '\';\n');
+	  		prefix = prefix.concat('window.__idToLocation[' + id + '] = ' + JSON.stringify(idToLocation[id]) + ';\n');
+	  	prefix = prefix.concat('window.__urlToSource[\'' + escape(url) + '\'] = \'' + escape(source) + '\';\n');
 	  	return '{\n' + prefix + '}\n' + processed_source;		
 	},
 
 	injectedScript: function __beforeAll() {
 		/* do-not-preprocess */
-		window.top.__hits = window.top.__hits || new Int32Array(1024 * 1024);
-		window.top.__profileEnable = window.top.__profileEnable !== undefined ? window.top.__profileEnable : false;
-		window.top.__idToLocation = window.top.__idToLocation || {};
-		window.top.__urlToSource = window.top.__urlToSource || {};
+		window.__hits = window.__hits || new Int32Array(1024 * 1024);
+		window.__profileEnable = window.__profileEnable !== undefined ? window.__profileEnable : false;
+		window.__idToLocation = window.__idToLocation || {};
+		window.__urlToSource = window.__urlToSource || {};
 	},
 
 	requiredLibs: function() {

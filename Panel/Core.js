@@ -13,7 +13,6 @@ Core.prototype = {
             var options = {
                 ignoreCache: true,
                 userAgent: undefined,
-                injectedScript: tool.injectedScript.toString() + '__beforeAll()',
                 preprocessingScript: tool.preprocessorWithLibs()
             };
             chrome.devtools.inspectedWindow.reload(options);
@@ -25,7 +24,7 @@ Core.prototype = {
 
         view.div.querySelector('.enabled-checkbox').addEventListener('change', function() {
             var newValue = view.div.querySelector('.enabled-checkbox').checked;
-            var expr = 'window.top.__profileEnable = ' + newValue.toString();
+            var expr = 'window.__profileEnable = ' + newValue.toString();
             evalAllFrames(expr, function(){});
           });
     },
