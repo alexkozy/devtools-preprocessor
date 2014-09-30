@@ -13,7 +13,12 @@ Extension uses next third party:
 - [codemirror](http://codemirror.net/) and [trace-viewer](https://code.google.com/p/trace-viewer/) for tools UI.
 
 ## Build and install instructions
-Coming soon.
+- git clone https://github.com/ak239/devtools-preprocessor
+- cd devtools-preprocessor
+- [bower](http://bower.io/) install
+- [vulcanize](https://github.com/polymer/vulcanize) -o ./Panel/build.html ./Panel/Panel.html --csp
+- open [extensions tab](chrome://extensions) in chrome
+- check developer mode and load extension folder
 
 ## Screenshots
 ### Profiler
