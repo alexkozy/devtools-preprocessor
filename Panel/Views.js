@@ -87,7 +87,6 @@ function HitsCounterView(div) {
 
 HitsCounterView.prototype = {
     showReport: function(report) {
-        debugger;
         /**
             report is array with objects:
             {

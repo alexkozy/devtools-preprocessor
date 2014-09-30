@@ -8,10 +8,9 @@ Tool.prototype = {
 	_getLib: function(name, path) {
 		var req = new XMLHttpRequest();
 		req.open('GET', path + name, false);
-		req.send(null);
-		if (req.status === 200) {
+		req.send();
+		if (req.status === 200)
 			return req.responseText;
-		}
 		else
 			throw "Can't load lib: " + name + " with status: " + req.status;
 	},
@@ -235,39 +234,6 @@ Profiler.prototype = {
 			window.__idToSource[0] = 0;
 			window.__sourceToUrl[0] = 'preprocessor';
 		}
-	},
-
-	injectedScript: function __beforeAll() {
-		/* do-not-preprocess */
-		// TODO: replace magic number with real value from first special instrument
-		var MAX_STACK_SIZE = 1024;
-  		var MAX_FUNCTION_COUNT = 32 * 1024;
-  		var MAX_PROFILE_LENGTH = 1024 * 1024;
-
-  		window.__entryTime = window.__entryTime || new Float64Array(MAX_STACK_SIZE);
-  		window.__entryTop = window.__entryTop || -1;
-
-  		window.__MAX_PROFILE_LENGTH = MAX_PROFILE_LENGTH;
-  		window.__profileFunction = window.__profileFunction || new Int16Array(MAX_PROFILE_LENGTH);
-  		window.__profileStart = window.__profileStart || new Float64Array(MAX_PROFILE_LENGTH);
-  		window.__profileFinish = window.__profileFinish || new Float64Array(MAX_PROFILE_LENGTH);
-  		window.__profileStack = window.__profileStack || new Int16Array(MAX_PROFILE_LENGTH);
-  		window.__profileLast = window.__profileLast || -1;
-  		window.__profileCalls = window.__profileCalls || -1;
-
-  		window.__profileEnable = window.__profileEnable !== undefined ? window.__profileEnable : false;
-  		window.__idToFunctionName = window.__idToFunctionName || {};
-
-  		window.__idToRow = window.__idToRow || new Int16Array(MAX_FUNCTION_COUNT);
-  		window.__idToCol = window.__idToCol || new Int16Array(MAX_FUNCTION_COUNT);	
-  		window.__idToSource = window.__idToSource || new Int16Array(MAX_FUNCTION_COUNT);
-  		window.__sourceToUrl = window.__sourceToUrl || [];
-
-		window.__idToFunctionName[0] = 'preprocess';
-		window.__idToRow[0] = 1;
-		window.__idToCol[0] = 1;
-		window.__idToSource[0] = 0;
-		window.__sourceToUrl[0] = 'preprocessor';
 	},
 
 	requiredLibs: function() {
