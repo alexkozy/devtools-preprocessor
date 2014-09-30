@@ -343,19 +343,18 @@ HitsCounter.prototype = {
 		});
 		this.lastLocID = lastLocID;
 		var processed_source = escodegen.generate(ast);
-		var prefix = '';
+		var prefix = __beforeAll.toString() + '\n__beforeAll();\n';
 	  	for (id in idToLocation)
 	  		prefix = prefix.concat('window.__idToLocation[' + id + '] = ' + JSON.stringify(idToLocation[id]) + ';\n');
 	  	prefix = prefix.concat('window.__urlToSource[\'' + escape(url) + '\'] = \'' + escape(source) + '\';\n');
-	  	return '{\n' + prefix + '}\n' + processed_source;		
-	},
+	  	return '{\n' + prefix + '}\n' + processed_source;
 
-	injectedScript: function __beforeAll() {
-		/* do-not-preprocess */
-		window.__hits = window.__hits || new Int32Array(1024 * 1024);
-		window.__profileEnable = window.__profileEnable !== undefined ? window.__profileEnable : false;
-		window.__idToLocation = window.__idToLocation || {};
-		window.__urlToSource = window.__urlToSource || {};
+	  	function __beforeAll() {
+			window.__hits = window.__hits || new Int32Array(1024 * 1024);
+			window.__profileEnable = window.__profileEnable !== undefined ? window.__profileEnable : false;
+			window.__idToLocation = window.__idToLocation || {};
+			window.__urlToSource = window.__urlToSource || {};
+		}
 	},
 
 	requiredLibs: function() {

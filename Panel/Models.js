@@ -9,6 +9,10 @@ Model.prototype = {
             merged = merged.concat.apply(merged, report);
             callback(self._process(merged));
         });
+    },
+
+    _process: function(report) {
+        return report;
     }
 }
 
@@ -18,17 +22,17 @@ function ProfilerModel() {
 
 ProfilerModel.prototype = {
     _getReport: function injectedGetReport() {
-        var profileFunction = window.top.__profileFunction;
-        var profileStart = window.top.__profileStart;
-        var profileFinish = window.top.__profileFinish;
-        var profileLast = window.top.__profileLast;
-        var profileStack = window.top.__profileStack;
-        var idToFunctionName = window.top.__idToFunctionName;
-        var idToRow = window.top.__idToRow;
-        var idToCol = window.top.__idToCol;
+        var profileFunction = window.__profileFunction;
+        var profileStart = window.__profileStart;
+        var profileFinish = window.__profileFinish;
+        var profileLast = window.__profileLast;
+        var profileStack = window.__profileStack;
+        var idToFunctionName = window.__idToFunctionName;
+        var idToRow = window.__idToRow;
+        var idToCol = window.__idToCol;
 
-        var idToSource = window.top.__idToSource;
-        var sourceToURL = window.top.__sourceToUrl;
+        var idToSource = window.__idToSource;
+        var sourceToURL = window.__sourceToUrl;
 
         var report = [];
         for (var i = 0; i <= profileLast; ++i) {
@@ -117,10 +121,10 @@ function HitsCounterModel() {}
 HitsCounterModel.prototype = {
     _getReport: function injectedGetReport() {
         var report = {};
-        for (var i = 0; i < window.top.__hits.length; ++i) {
-            if (window.top.__hits[i] > 0) {
-                var hits_count = window.top.__hits[i];
-                var loc = window.top.__idToLocation[i];
+        for (var i = 0; i < window.__hits.length; ++i) {
+            if (window.__hits[i] > 0) {
+                var hits_count = window.__hits[i];
+                var loc = window.__idToLocation[i];
                 var per_url = report[loc.url] || {hits: [], lines: {}, total: 0, source: '', url: loc.url};
                 per_url.hits.push({loc: loc, count: hits_count});
                 if (per_url.lines[loc.start.line])
