@@ -79,17 +79,17 @@ Profiler.prototype = {
 				function __profiled__(/*here function arguments*/) {\n\
 					// here function body\n\
 				}\n\
-				if (window.top.__profileEnable && window.top.__profileCalls + 1 < window.top.__MAX_PROFILE_LENGTH) {\n\
+				if (window.__profileEnable && window.__profileCalls + 1 < window.__MAX_PROFILE_LENGTH) {\n\
 					try {\n\
-						++window.top.__profileCalls;\n\
-						window.top.__entryTime[++window.top.__entryTop] = window.top.performance.now();\n\
+						++window.__profileCalls;\n\
+						window.__entryTime[++window.__entryTop] = window.performance.now();\n\
 						return __profiled__.apply(this, arguments);\n\
 					} finally {\n\
-						++window.top.__profileLast;\n\
-						window.top.__profileFinish[window.top.__profileLast] = window.top.performance.now();\n\
-						window.top.__profileStack[window.top.__profileLast] = window.top.__entryTop;\n\
-						window.top.__profileStart[window.top.__profileLast] = window.top.__entryTime[window.top.__entryTop--];\n\
-						window.top.__profileFunction[window.top.__profileLast] = 1 /* here correct function ID */;\n\
+						++window.__profileLast;\n\
+						window.__profileFinish[window.__profileLast] = window.performance.now();\n\
+						window.__profileStack[window.__profileLast] = window.__entryTop;\n\
+						window.__profileStart[window.__profileLast] = window.__entryTime[window.__entryTop--];\n\
+						window.__profileFunction[window.__profileLast] = 1 /* here correct function ID */;\n\
 					}\n\
 				}\n\
 				return __profiled__.apply(this, arguments);\n\
@@ -168,12 +168,12 @@ Profiler.prototype = {
 		this.functionID = functionID;
 
 	
-	  	var prefix = 'window.top.__sourceToUrl[' + sourceID + '] = \'' + escape(url) + '\';\n';
+	  	var prefix = 'window.__sourceToUrl[' + sourceID + '] = \'' + escape(url) + '\';\n';
 	  	for (id in idToFunctionName) {
-	  		prefix = prefix.concat('window.top.__idToFunctionName[' + id + '] = \'' + idToFunctionName[id] + '\';\n');
-	  		prefix = prefix.concat('window.top.__idToRow[' + id + '] = ' + idToRow[id] + ';\n');
-	  		prefix = prefix.concat('window.top.__idToCol[' + id + '] = ' + idToCol[id] + ';\n');
-	  		prefix = prefix.concat('window.top.__idToSource[' + id + '] = ' + sourceID + ';\n');
+	  		prefix = prefix.concat('window.__idToFunctionName[' + id + '] = \'' + idToFunctionName[id] + '\';\n');
+	  		prefix = prefix.concat('window.__idToRow[' + id + '] = ' + idToRow[id] + ';\n');
+	  		prefix = prefix.concat('window.__idToCol[' + id + '] = ' + idToCol[id] + ';\n');
+	  		prefix = prefix.concat('window.__idToSource[' + id + '] = ' + sourceID + ';\n');
 	  	}
 
 		var prefix_ast = esprima.parse(prefix);
@@ -190,7 +190,7 @@ Profiler.prototype = {
 	  	var end_time = (new Date()).getTime();
 	  	var total_time = (end_time - start_time);
 	  	prefix += '\
-			window.top.__profileStart[window.top.__profileLast] = window.top.__profileFinish[window.top.__profileLast] - ' + total_time.toString() + ';\n\
+			window.__profileStart[window.__profileLast] = window.__profileFinish[window.__profileLast] - ' + total_time.toString() + ';\n\
 		';
 
 		var processed_source = '{\n' + prefix + '}\n' + processed_result.code;
@@ -206,30 +206,30 @@ Profiler.prototype = {
   		var MAX_FUNCTION_COUNT = 32 * 1024;
   		var MAX_PROFILE_LENGTH = 1024 * 1024;
 
-  		window.top.__entryTime = window.top.__entryTime || new Float64Array(MAX_STACK_SIZE);
-  		window.top.__entryTop = window.top.__entryTop || -1;
+  		window.__entryTime = window.__entryTime || new Float64Array(MAX_STACK_SIZE);
+  		window.__entryTop = window.__entryTop || -1;
 
-  		window.top.__MAX_PROFILE_LENGTH = MAX_PROFILE_LENGTH;
-  		window.top.__profileFunction = window.top.__profileFunction || new Int16Array(MAX_PROFILE_LENGTH);
-  		window.top.__profileStart = window.top.__profileStart || new Float64Array(MAX_PROFILE_LENGTH);
-  		window.top.__profileFinish = window.top.__profileFinish || new Float64Array(MAX_PROFILE_LENGTH);
-  		window.top.__profileStack = window.top.__profileStack || new Int16Array(MAX_PROFILE_LENGTH);
-  		window.top.__profileLast = window.top.__profileLast || -1;
-  		window.top.__profileCalls = window.top.__profileCalls || -1;
+  		window.__MAX_PROFILE_LENGTH = MAX_PROFILE_LENGTH;
+  		window.__profileFunction = window.__profileFunction || new Int16Array(MAX_PROFILE_LENGTH);
+  		window.__profileStart = window.__profileStart || new Float64Array(MAX_PROFILE_LENGTH);
+  		window.__profileFinish = window.__profileFinish || new Float64Array(MAX_PROFILE_LENGTH);
+  		window.__profileStack = window.__profileStack || new Int16Array(MAX_PROFILE_LENGTH);
+  		window.__profileLast = window.__profileLast || -1;
+  		window.__profileCalls = window.__profileCalls || -1;
 
-  		window.top.__profileEnable = window.top.__profileEnable !== undefined ? window.top.__profileEnable : false;
-  		window.top.__idToFunctionName = window.top.__idToFunctionName || {};
+  		window.__profileEnable = window.__profileEnable !== undefined ? window.__profileEnable : false;
+  		window.__idToFunctionName = window.__idToFunctionName || {};
 
-  		window.top.__idToRow = window.top.__idToRow || new Int16Array(MAX_FUNCTION_COUNT);
-  		window.top.__idToCol = window.top.__idToCol || new Int16Array(MAX_FUNCTION_COUNT);	
-  		window.top.__idToSource = window.top.__idToSource || new Int16Array(MAX_FUNCTION_COUNT);
-  		window.top.__sourceToUrl = window.__sourceToUrl || [];
+  		window.__idToRow = window.__idToRow || new Int16Array(MAX_FUNCTION_COUNT);
+  		window.__idToCol = window.__idToCol || new Int16Array(MAX_FUNCTION_COUNT);	
+  		window.__idToSource = window.__idToSource || new Int16Array(MAX_FUNCTION_COUNT);
+  		window.__sourceToUrl = window.__sourceToUrl || [];
 
-		window.top.__idToFunctionName[0] = 'preprocess';
-		window.top.__idToRow[0] = 1;
-		window.top.__idToCol[0] = 1;
-		window.top.__idToSource[0] = 0;
-		window.top.__sourceToUrl[0] = 'preprocessor';
+		window.__idToFunctionName[0] = 'preprocess';
+		window.__idToRow[0] = 1;
+		window.__idToCol[0] = 1;
+		window.__idToSource[0] = 0;
+		window.__sourceToUrl[0] = 'preprocessor';
 	},
 
 	requiredLibs: function() {

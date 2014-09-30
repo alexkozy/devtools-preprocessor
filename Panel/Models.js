@@ -3,61 +3,12 @@ function Model() {}
 Model.prototype = {
     getReport: function(callback) {
         var expr = this._getReport.toString() + '\ninjectedGetReport()';
-        var myself = this;
-        function onEval(report, isException) {
-            if (isException)
-                throw new Error('Eval failed for ' + expr, isException.value);
-            callback(myself._process(report));
-        }
-        chrome.devtools.inspectedWindow.eval(expr, onEval);
-    },
-
-    getReportFromAllFrames: function(callback) {
-
-    },
-
-    getReportFromFrame: function(url, callback) {
-
-        // first get report
-        // second get iframes
-        // third get urls
-        // forth recursive call to all frames
-    },
-
-    _process: function(report) {
-        return report;
-    },
-
-    _getFramesURL: function(url, callback) {
-        var expr = this._getFrames.toString() + '\ninjectedGetFrames()';
-        var myself = this;
-        function onEval(urls, isException) {
-            if (isException)
-                throw new Error('Eval failed for ' + expr, isException.value);
-            callback(urls);            
-        }
-        if (!!url) {
-            var options = {
-                frame: {
-                    url: url,
-                    securityOrigin: origin
-                }
-            }
-            chrome.devtools.inspectedWindow.eval(expr, options, onEval);
-        } else {
-            chrome.devtools.inspectedWindow.eval(expr, onEval);
-        }
-    },
-
-    _processURLs: function(urls, callback) {
-        var resourceURLs = '';
-        
-    },
-
-    _getFrames: function injectedGetFrames() {
-        var frames = Array.prototype.slice.call(document.querySelectorAll('iframe'));
-        var urls = frames.map(function(el){ return el.src; }).filter(function(el){ return !!el; });
-        return urls;
+        var self = this;
+        evalAllFrames(expr, function(report){
+            var merged = [];
+            merged = merged.concat.apply(merged, report);
+            callback(self._process(merged));
+        });
     }
 }
 

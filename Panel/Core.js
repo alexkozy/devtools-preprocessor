@@ -26,11 +26,7 @@ Core.prototype = {
         view.div.querySelector('.enabled-checkbox').addEventListener('change', function() {
             var newValue = view.div.querySelector('.enabled-checkbox').checked;
             var expr = 'window.top.__profileEnable = ' + newValue.toString();
-            function onEval(profileEnable, isException) {
-                if (isException)
-                    throw new Error('Eval failed for ' + expr, isException.value);
-            }
-            chrome.devtools.inspectedWindow.eval(expr, onEval);
+            evalAllFrames(expr, function(){});
           });
     },
 
