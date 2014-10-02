@@ -5,11 +5,14 @@
     "devtools_page": "chrome-preprocessor.html",
     "manifest_version": 2,
     "permissions": [
-        "tabs"
+        "tabs",
+        "http://*/*",
+        "https://*/*"
     ],
     "background": {
         "scripts": [
             "background.js"
-        ]
+        ],
+        "persistent": false
     }
 }

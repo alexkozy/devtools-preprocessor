@@ -2,8 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-function View(div) {
+function View(div, progress_div) {
     this.div = div;
+    this.progress_div = progress_div;
+    this.progress_el = progress_div.querySelector('paper-progress');
 }
 
 View.prototype = {
@@ -29,12 +31,37 @@ View.prototype = {
 
     hide: function() {
         this.div_.style.display = 'none';
+    },
+
+    showProgress: function(max) {
+        this.hide();
+        // this.progress_div.style.display = 'block';
+        // this.progress_el.max = max;
+        // this.progress_el.value = 0;
+    },
+
+    incrementProgress: function() {
+        // this.progress_div.style.display = 'none';
+        // this.progress_div.style.display = 'block';
+        this.progress_el.value++;
+    },
+
+    hideProgress: function() {
+        this.show();
+        // this.progress_div.style.display = 'none';
     }
 }
 
-function ProfilerView(div) {
-    View.call(this, div);
+function ProfilerView(div, progress_div) {
+    View.call(this, div, progress_div);
     this.model_ = new ProfilerModel();
+    var viewEl = document.querySelector('x-timeline-view');
+    viewEl.innerHTML = "";
+    tvcm.ui.decorate(viewEl, tracing.TimelineView);
+    viewEl.viewTitle = '';
+    viewEl.userSelectionChanged = this._onSelectionChanged;
+    tracing.constants.HEADING_WIDTH = 40;
+    this.viewEl = viewEl;
 }
 
 ProfilerView.prototype = {
@@ -56,17 +83,9 @@ ProfilerView.prototype = {
         }
 
         this.div_.querySelector('.results_count').innerHTML = 'Total count: ' + report.length;
-        tracing.constants.HEADING_WIDTH = 40;
-
         var model = new tracing.TraceModel();
         model.importTraces([data]);
-
-        var viewEl = document.querySelector('x-timeline-view');
-        viewEl.innerHTML = "";
-        tvcm.ui.decorate(viewEl, tracing.TimelineView);
-        viewEl.model = model;
-        viewEl.viewTitle = '';
-        viewEl.userSelectionChanged = this._onSelectionChanged;
+        this.viewEl.model = model;
     },
 
     _onSelectionChanged: function(selection) {
@@ -80,8 +99,8 @@ ProfilerView.prototype = {
 }
 ProfilerView.prototype.__proto__ = View.prototype;
 
-function HitsCounterView(div) {
-    View.call(this, div);
+function HitsCounterView(div, progress_div) {
+    View.call(this, div, progress_div);
     this.model_ = new HitsCounterModel();
 }
 
@@ -95,6 +114,11 @@ HitsCounterView.prototype = {
                 hits: loc - hits
             }
         */
+        var cm = codeMirror;
+        var doc = cm.getDoc();
+        doc.setValue('');
+        doc.markClean();
+        cm.clearGutter('hits');
         this.div_.querySelector('files-with-hits').reports = report;
     }
 }

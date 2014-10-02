@@ -16,15 +16,16 @@
   src="../bower_components/platform/platform.js">
 </script>
 <link rel="import" href="../bower_components/polymer/polymer.html">
+<link rel="import" href="../bower_components/core-icons/core-icons.html">
 <link rel="import" href="../bower_components/core-toolbar/core-toolbar.html">
 <link rel="import" href="../bower_components/core-menu/core-menu.html">
 <link rel="import" href="../bower_components/core-item/core-item.html">
 <link rel="import" href="../bower_components/core-header-panel/core-header-panel.html">
 <link rel="import" href="../bower_components/core-drawer-panel/core-drawer-panel.html">
 <link rel="import" href="../bower_components/core-scaffold/core-scaffold.html">
-<link rel="import" href="../bower_components/paper-button/paper-button.html">
-<link rel="import" href="../bower_components/paper-checkbox/paper-checkbox.html">
 <link rel="import" href="../bower_components/paper-tabs/paper-tabs.html">
+<link rel="import" href="../bower_components/paper-fab/paper-fab.html">
+<link rel="import" href="../bower_components/paper-progress/paper-progress.html">
 <!-- [END imports] -->
 <style shim-shadowdom>
   /* [START styles] */
@@ -34,32 +35,24 @@
     #navheader {
       background-color: #56BA89;
     }
-    paper-checkbox {
-      margin-left: 20px;
-      margin-right: 20px;
+    paper-fab {
+      color: #FFF;
+      margin-left: 1em;
+      margin-top: 1em;
+      margin-bottom: 1em;
     }
-    paper-checkbox::shadow #ink[checked] {
-      color: #4285f4;
-    }   
-    paper-checkbox::shadow #checkbox.checked {
-      border-color: #4285f4;
+    paper-fab.blue {
+      background: #5677fc;
     }
-    paper-button {
-      margin-left: 10px;
-      color: #4285f4;
-      fill: #4285f4;
+    paper-fab.red-circle {
+      color: #d23f31;
     }
-    paper-button[raisedButton] {
-      background: #4285f4;
-      color: #fff;
-    }
-    paper-button[raisedButton] #ripple,
-    paper-button[raisedButton]::shadow #ripple {
-      color: #2a56c6;
-    }
-    paper-button[raisedButton] #focusBg,
-    paper-button[raisedButton]::shadow #focusBg {
-      background: #3367d6;
+    #progress {
+      display: none;
+      margin-left: auto;
+      margin-right: auto;
+      width: 70%;
+      margin-top: 1em;
     }
 </style>
 </head>
@@ -80,15 +73,15 @@
     <span tool="" id="title">Title</span>
 
     <div class="content">
+      <div id="progress">
+        <paper-progress></paper-progress>
+      </div>
 
       <div id="profiler-content">
         <div horizontal layout center>
-          <paper-button class="reload-button" label="Reload with instrumentation" raisedbutton=""></paper-button>
-          <paper-button class="refresh-button" label="Refresh View" raisedbutton=""></paper-button>
-          <paper-checkbox class="enabled-checkbox"></paper-checkbox>
-          <div vertical="" layout="">
-            <h4>Profiler Enabled</h4>
-          </div>
+          <paper-fab class="reload blue" icon="refresh"></paper-fab>
+          <paper-fab class="enable blue" icon="check-circle-blank" isToggle="true"></paper-fab>
+          <paper-fab class="clear blue" icon="clear"></paper-fab>
         </div>
         
         <div class="results_count"></div>
@@ -97,12 +90,9 @@
 
       <div id="hits-counter-content">
         <div horizontal layout center>
-          <paper-button class="reload-button" label="Reload with instrumentation" raisedButton></paper-button>
-          <paper-button class="refresh-button" label="Refresh View" raisedbutton=""></paper-button>
-          <paper-checkbox class="enabled-checkbox"></paper-checkbox>
-          <div vertical layout>
-            <h4>Hits Counter Enabled</h4>
-          </div>
+          <paper-fab class="reload blue" icon="refresh"></paper-fab>
+          <paper-fab class="enable blue" icon="check-circle-blank" isToggle="true"></paper-fab>
+          <paper-fab class="clear blue" icon="clear"></paper-fab>
         </div>
 
         <polymer-element name="files-with-hits" assetpath="" attributes="reports">
@@ -153,22 +143,31 @@
                 this.reports = [];
               },
               fileClick : function(e, details, sender) {
+                var view = core.view('Hits Counter');
                 var report = sender.templateInstance.model.report;
-
+                var start = new Date();
                 var cm = codeMirror;
                 var doc = cm.getDoc();
                 doc.setValue(unescape(report.source));
+                doc.markClean();
+                cm.clearGutter('hits');
+
                 var max_hits = 0;
                 var report_hits = report.hits;
+
+                // view.showProgress(report_hits.length + report.lines.length);
+
                 for (var j = 0; j < report_hits.length; ++j)
                   if (report_hits[j].count > max_hits)
                     max_hits = report_hits[j].count;
 
                 var mark_count = 100;
                 for (var j = 0; j < report_hits.length; ++j) {
+                  view.incrementProgress();
                   var loc = report_hits[j].loc;
                   var hits = report_hits[j].count;
-                  cm.markText({line: loc.start.line - 1, ch: loc.start.column}, {line: loc.end.line - 1, ch: loc.end.column}, {className: "mark-" + Math.ceil(hits / max_hits * mark_count)});  
+                  var s = Math.ceil(hits / max_hits * mark_count);
+                  doc.markText({line: loc.start.line - 1, ch: loc.start.column}, {line: loc.end.line - 1, ch: loc.end.column}, {className: "mark-" + s});  
                 }
 
                 function makeMarker(hits) {
@@ -178,8 +177,11 @@
                 }
 
                 for (line in report.lines) {
+                  view.incrementProgress();
                   cm.setGutterMarker(parseInt(line) - 1, "hits", makeMarker(report.lines[line]));
-                } 
+                }
+
+                // view.hideProgress();
               }
             });
           </script>

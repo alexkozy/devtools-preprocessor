@@ -5,7 +5,7 @@
 function evalAllFrames(expr, callback) {
 	var receivedFrames;
 	var receivedResources;
-	chrome.extension.sendRequest({command:"getAllFrames"}, allFramesReceived);
+	chrome.runtime.sendMessage({tabId: chrome.devtools.inspectedWindow.tabId, command:"getAllFrames"}, allFramesReceived);
 	chrome.devtools.inspectedWindow.getResources(allResourcesReceived);
 	function allFramesReceived(frames) {
 		receivedFrames = frames;
@@ -31,7 +31,7 @@ function evalAllFrames(expr, callback) {
 				chrome.devtools.inspectedWindow.eval(expr, options, resultReceived);
 				function resultReceived(result){
 					results.push(result);
-					if (results.length === urls.length)
+					if (results.length === urls.length && callback)
 						callback(results);
 				}
 			});

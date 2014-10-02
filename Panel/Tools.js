@@ -31,6 +31,11 @@ Tool.prototype = {
 		preprocessor_source = preprocessor_source.substring(0, start_prefix_place) + prefix + preprocessor_source.substring(start_prefix_place + LIBS_PLACE.length);
 		preprocessor_source = '(' + preprocessor_source + ')';
 		return preprocessor_source;
+	},
+
+	setEnable: function(enabled) {
+		var expr = 'window.__toolEnabled = ' + (enabled ? 'true' : 'false') + ';';
+		evalAllFrames(expr);
 	}
 }
 
@@ -82,7 +87,7 @@ Profiler.prototype = {
 				function __profiled__(/*here function arguments*/) {\n\
 					// here function body\n\
 				}\n\
-				if (window.__profileEnable && window.__profileCalls + 1 < window.__MAX_PROFILE_LENGTH) {\n\
+				if (window.__toolEnabled && window.__profileCalls + 1 < window.__MAX_PROFILE_LENGTH) {\n\
 					try {\n\
 						++window.__profileCalls;\n\
 						window.__entryTime[++window.__entryTop] = window.performance.now();\n\
@@ -220,7 +225,7 @@ Profiler.prototype = {
 	  		window.__profileLast = window.__profileLast || -1;
 	  		window.__profileCalls = window.__profileCalls || -1;
 
-	  		window.__profileEnable = window.__profileEnable !== undefined ? window.__profileEnable : false;
+	  		window.__toolEnabled = window.__toolEnabled !== undefined ? window.__toolEnabled : false;
 	  		window.__idToFunctionName = window.__idToFunctionName || {};
 
 	  		window.__idToRow = window.__idToRow || new Int16Array(MAX_FUNCTION_COUNT);
@@ -238,6 +243,11 @@ Profiler.prototype = {
 
 	requiredLibs: function() {
 		return ['esprima.js', 'estraverse.js', 'escodegen.browser.js', 'source-map.js'];
+	},
+
+	clear: function() {
+		var expr = 'window.__profileLast = -1;';
+		evalAllFrames(expr);
 	}
 }
 Profiler.prototype.__proto__ = Tool.prototype;
@@ -267,7 +277,7 @@ HitsCounter.prototype = {
 		    return this.indexOf(suffix, this.length - suffix.length) !== -1;
 		};
 		function makeInstrument(id) {
-			var instrument_source = 'window.__profileEnable && window.__hits[0]++';
+			var instrument_source = 'window.__toolEnabled && window.__hits[0]++';
 			var instrument = esprima.parse(instrument_source).body[0].expression;
 			var id_property = instrument.right.argument.property;
 			id_property.raw = id.toString();
@@ -321,7 +331,7 @@ HitsCounter.prototype = {
 
 	  	function __beforeAll() {
 			window.__hits = window.__hits || new Int32Array(1024 * 1024);
-			window.__profileEnable = window.__profileEnable !== undefined ? window.__profileEnable : false;
+			window.__toolEnabled = window.__toolEnabled !== undefined ? window.__toolEnabled : false;
 			window.__idToLocation = window.__idToLocation || {};
 			window.__urlToSource = window.__urlToSource || {};
 		}
@@ -329,6 +339,11 @@ HitsCounter.prototype = {
 
 	requiredLibs: function() {
 		return ['esprima.js', 'estraverse.js', 'escodegen.browser.js'];
+	},
+
+	clear: function() {
+		var expr = 'window.__hits = new Int32Array(1024 * 1024);';
+		evalAllFrames(expr);
 	}
 }
 HitsCounter.prototype.__proto__ = Tool.prototype;

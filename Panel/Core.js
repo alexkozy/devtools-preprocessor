@@ -9,11 +9,15 @@ function Core(title_span) {
 }
 
 Core.prototype = {
+    view: function(name) {
+        return this.tools_[name].view;
+    },
+
     register: function(name, tool, view) {
         this.tools_[name] = {tool: tool, view: view};
         view.hide();
 
-        view.div.querySelector('.reload-button').addEventListener('click', function() {
+        view.div.querySelector('.reload').addEventListener('click', function(){
             var options = {
                 ignoreCache: true,
                 userAgent: undefined,
@@ -22,15 +26,21 @@ Core.prototype = {
             chrome.devtools.inspectedWindow.reload(options);
         });
 
-        view.div.querySelector('.refresh-button').addEventListener('click', function() {
-            view.refresh();
+        view.div.querySelector('.enable').addEventListener('click', function(){
+            var isEnable = this.active;
+            if (isEnable)
+                this.className += ' red-circle';
+            else
+                this.className = this.className.replace( /(?:^|\s)red-circle(?!\S)/g, '');
+            tool.setEnable(isEnable);
+            if (!isEnable)
+                view.refresh();
         });
 
-        view.div.querySelector('.enabled-checkbox').addEventListener('change', function() {
-            var newValue = view.div.querySelector('.enabled-checkbox').checked;
-            var expr = 'window.__profileEnable = ' + newValue.toString();
-            evalAllFrames(expr, function(){});
-          });
+        view.div.querySelector('.clear').addEventListener('click', function(){
+            tool.clear();
+            view.refresh();
+        });
     },
 
     show: function(name) {
@@ -42,14 +52,15 @@ Core.prototype = {
         this.current_ = name;
         this.title_span_.innerHTML = name;
     }
-
 }
 
 document.addEventListener('polymer-ready', function() {
     core = new Core(document.getElementById('title'));
 
-    core.register('Profiler', new Profiler(), new ProfilerView(document.getElementById('profiler-content')));
-    core.register('Hits Counter', new HitsCounter(), new HitsCounterView(document.getElementById('hits-counter-content')));
+    var progress_div = document.getElementById('progress');
+
+    core.register('Profiler', new Profiler(), new ProfilerView(document.getElementById('profiler-content'), progress_div));
+    core.register('Hits Counter', new HitsCounter(), new HitsCounterView(document.getElementById('hits-counter-content'), progress_div));
 
     var link_profiler = document.getElementById('link-profiler');
     link_profiler.addEventListener('click', function() {
@@ -62,13 +73,12 @@ document.addEventListener('polymer-ready', function() {
     });
 
     codeMirror = CodeMirror.fromTextArea(document.getElementById('code-view'), {
-            mode: "javascript",
-            lineNumbers: true,
-            gutters: ["CodeMirror-linenumbers", "hits"],
-            readOnly: true
+        mode: "javascript",
+        lineNumbers: true,
+        gutters: ["CodeMirror-linenumbers", "hits"],
+        readOnly: true
     });
 
-    // TODO: move to view
     function generateMarkStyle(from, to, count) {
         var head = document.head || document.getElementsByTagName('head')[0];
         var style = document.createElement('style');
