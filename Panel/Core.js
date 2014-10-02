@@ -55,12 +55,18 @@ Core.prototype = {
 }
 
 document.addEventListener('polymer-ready', function() {
-    core = new Core(document.getElementById('title'));
+    codeMirror = CodeMirror.fromTextArea(document.getElementById('code-view'), {
+        mode: "javascript",
+        lineNumbers: true,
+        gutters: ["CodeMirror-linenumbers", "hits"],
+        readOnly: true
+    });
 
     var progress_div = document.getElementById('progress');
 
+    core = new Core(document.getElementById('title'));
     core.register('Profiler', new Profiler(), new ProfilerView(document.getElementById('profiler-content'), progress_div));
-    core.register('Hits Counter', new HitsCounter(), new HitsCounterView(document.getElementById('hits-counter-content'), progress_div));
+    core.register('Hits Counter', new HitsCounter(), new HitsCounterView(document.getElementById('hits-counter-content'), progress_div, codeMirror));
 
     var link_profiler = document.getElementById('link-profiler');
     link_profiler.addEventListener('click', function() {
@@ -70,13 +76,6 @@ document.addEventListener('polymer-ready', function() {
     var link_hits_counter = document.getElementById('link-hits-counter');
     link_hits_counter.addEventListener('click', function() {
         core.show('Hits Counter');
-    });
-
-    codeMirror = CodeMirror.fromTextArea(document.getElementById('code-view'), {
-        mode: "javascript",
-        lineNumbers: true,
-        gutters: ["CodeMirror-linenumbers", "hits"],
-        readOnly: true
     });
 
     function generateMarkStyle(from, to, count) {

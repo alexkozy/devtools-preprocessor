@@ -24,7 +24,7 @@
 <link rel="import" href="../bower_components/core-drawer-panel/core-drawer-panel.html">
 <link rel="import" href="../bower_components/core-scaffold/core-scaffold.html">
 <link rel="import" href="../bower_components/paper-tabs/paper-tabs.html">
-<link rel="import" href="../bower_components/paper-fab/paper-fab.html">
+<link rel="import" href="../bower_components/paper-button/paper-button.html">
 <link rel="import" href="../bower_components/paper-progress/paper-progress.html">
 <!-- [END imports] -->
 <style shim-shadowdom>
@@ -35,16 +35,16 @@
     #navheader {
       background-color: #56BA89;
     }
-    paper-fab {
+    paper-button {
       color: #FFF;
       margin-left: 1em;
       margin-top: 1em;
       margin-bottom: 1em;
     }
-    paper-fab.blue {
+    paper-button.blue {
       background: #5677fc;
     }
-    paper-fab.red-circle {
+    paper-button.red-circle {
       color: #d23f31;
     }
     #progress {
@@ -53,6 +53,12 @@
       margin-right: auto;
       width: 70%;
       margin-top: 1em;
+    }
+    paper-progress {
+      width: 100%;
+    }
+    paper-progress::shadow #activeProgress {
+      background-color: #5677fc;
     }
 </style>
 </head>
@@ -79,9 +85,9 @@
 
       <div id="profiler-content">
         <div horizontal layout center>
-          <paper-fab class="reload blue" icon="refresh"></paper-fab>
-          <paper-fab class="enable blue" icon="check-circle-blank" isToggle="true"></paper-fab>
-          <paper-fab class="clear blue" icon="clear"></paper-fab>
+          <paper-button class="reload blue" icon="refresh"></paper-button>
+          <paper-button class="enable blue" icon="check-circle-blank" isToggle="true"></paper-button>
+          <paper-button class="clear blue" icon="clear"></paper-button>
         </div>
         
         <div class="results_count"></div>
@@ -90,9 +96,9 @@
 
       <div id="hits-counter-content">
         <div horizontal layout center>
-          <paper-fab class="reload blue" icon="refresh"></paper-fab>
-          <paper-fab class="enable blue" icon="check-circle-blank" isToggle="true"></paper-fab>
-          <paper-fab class="clear blue" icon="clear"></paper-fab>
+          <paper-button class="reload blue" icon="refresh"></paper-button>
+          <paper-button class="enable blue" icon="check-circle-blank" isToggle="true"></paper-button>
+          <paper-button class="clear blue" icon="clear"></paper-button>
         </div>
 
         <polymer-element name="files-with-hits" assetpath="" attributes="reports">
@@ -144,44 +150,7 @@
               },
               fileClick : function(e, details, sender) {
                 var view = core.view('Hits Counter');
-                var report = sender.templateInstance.model.report;
-                var start = new Date();
-                var cm = codeMirror;
-                var doc = cm.getDoc();
-                doc.setValue(unescape(report.source));
-                doc.markClean();
-                cm.clearGutter('hits');
-
-                var max_hits = 0;
-                var report_hits = report.hits;
-
-                // view.showProgress(report_hits.length + report.lines.length);
-
-                for (var j = 0; j < report_hits.length; ++j)
-                  if (report_hits[j].count > max_hits)
-                    max_hits = report_hits[j].count;
-
-                var mark_count = 100;
-                for (var j = 0; j < report_hits.length; ++j) {
-                  view.incrementProgress();
-                  var loc = report_hits[j].loc;
-                  var hits = report_hits[j].count;
-                  var s = Math.ceil(hits / max_hits * mark_count);
-                  doc.markText({line: loc.start.line - 1, ch: loc.start.column}, {line: loc.end.line - 1, ch: loc.end.column}, {className: "mark-" + s});  
-                }
-
-                function makeMarker(hits) {
-                  var marker = document.createElement("div");
-                  marker.innerHTML = hits.toString();
-                  return marker;
-                }
-
-                for (line in report.lines) {
-                  view.incrementProgress();
-                  cm.setGutterMarker(parseInt(line) - 1, "hits", makeMarker(report.lines[line]));
-                }
-
-                // view.hideProgress();
+                view.showOneReport(sender.templateInstance.model.report);
               }
             });
           </script>

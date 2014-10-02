@@ -34,21 +34,17 @@ View.prototype = {
     },
 
     showProgress: function(max) {
-        this.hide();
-        // this.progress_div.style.display = 'block';
-        // this.progress_el.max = max;
-        // this.progress_el.value = 0;
+        this.progress_div.style.display = 'block';
+        this.progress_el.max = max;
+        this.progress_el.value = 0;
     },
 
     incrementProgress: function() {
-        // this.progress_div.style.display = 'none';
-        // this.progress_div.style.display = 'block';
         this.progress_el.value++;
     },
 
     hideProgress: function() {
-        this.show();
-        // this.progress_div.style.display = 'none';
+        this.progress_div.style.display = 'none';
     }
 }
 
@@ -99,13 +95,19 @@ ProfilerView.prototype = {
 }
 ProfilerView.prototype.__proto__ = View.prototype;
 
-function HitsCounterView(div, progress_div) {
+function HitsCounterView(div, progress_div, cm) {
     View.call(this, div, progress_div);
     this.model_ = new HitsCounterModel();
+    this.cm_ = cm;
 }
 
 HitsCounterView.prototype = {
-    showReport: function(report) {
+    show: function() {
+        View.prototype.show.call(this);
+        this._cm.refresh();
+    },
+
+    showReport: function(reports) {
         /**
             report is array with objects:
             {
@@ -114,12 +116,60 @@ HitsCounterView.prototype = {
                 hits: loc - hits
             }
         */
-        var cm = codeMirror;
+        var cm = this.cm_;
         var doc = cm.getDoc();
         doc.setValue('');
         doc.markClean();
         cm.clearGutter('hits');
-        this.div_.querySelector('files-with-hits').reports = report;
+        this.div_.querySelector('files-with-hits').reports = reports;
+    },
+
+    showOneReport: function(report) {
+        var cm = this.cm_;
+        var doc = cm.getDoc();
+        var max_hits = 0;
+        var report_hits = report.hits;
+        var progress = {value: 0, total: report_hits.length + Object.keys(report.lines).length};
+        for (var i = 0; i < report_hits.length; ++i)
+          if (report_hits[i].count > max_hits)
+            max_hits = report_hits[i].count;
+
+        this.showProgress(progress.total);
+        doc.markClean();
+        cm.clearGutter('hits');
+        doc.setValue(unescape(report.source));
+
+        for (var i = 0; i < report_hits.length; ++i)
+            setTimeout(this._markHit.bind(this, report_hits[i], max_hits, progress), 30);
+
+        for (line in report.lines)
+            setTimeout(this._makeGutter.bind(this, line, report.lines[line], progress), 30);
+    },
+
+    _markHit: function(hit, max_hits, progress) {
+        var mark_count = 100;
+        var loc = hit.loc;
+        var hits = hit.count;
+        var s = Math.ceil(hits / max_hits * mark_count);
+        var doc = this.cm_.getDoc();
+        doc.markText({line: loc.start.line - 1, ch: loc.start.column}, {line: loc.end.line - 1, ch: loc.end.column}, {className: "mark-" + s});
+        progress.value++;
+        this.incrementProgress();
+        if (progress.value === progress.total)
+            this.hideProgress();
+    },
+
+    _makeGutter: function(line, hits, progress) {
+        function makeMarker(hits) {
+          var marker = document.createElement("div");
+          marker.innerHTML = hits.toString();
+          return marker;
+        }
+        this.cm_.setGutterMarker(parseInt(line) - 1, "hits", makeMarker(hits));
+        progress.value++;
+        this.incrementProgress();
+        if (progress.value === progress.total)
+            this.hideProgress();
     }
 }
 HitsCounterView.prototype.__proto__ = View.prototype;
