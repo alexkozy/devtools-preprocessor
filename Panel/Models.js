@@ -40,17 +40,20 @@ ProfilerModel.prototype = {
 
         var report = [];
         for (var i = 0; i <= profileLast; ++i) {
-            report.push({
-                name: idToFunctionName[profileFunction[i]],
-                start: profileStart[i],
-                finish: profileFinish[i],
-                stack: profileStack[i],
-                args: {
-                    url: unescape(sourceToURL[idToSource[profileFunction[i]]]),
-                    line: idToRow[profileFunction[i]],
-                    column: idToCol[profileFunction[i]]
-                }
-            });
+            var name = idToFunctionName[profileFunction[i]];
+            if (name) {
+                report.push({
+                    name: idToFunctionName[profileFunction[i]],
+                    start: profileStart[i],
+                    finish: profileFinish[i],
+                    stack: profileStack[i],
+                    args: {
+                        url: unescape(sourceToURL[idToSource[profileFunction[i]]]),
+                        line: idToRow[profileFunction[i]],
+                        column: idToCol[profileFunction[i]]
+                    }
+                });
+            }
         }
 
         return report;
