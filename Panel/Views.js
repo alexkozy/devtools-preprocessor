@@ -2,13 +2,38 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-function View(div, progress_div) {
+function View(title_el, div, progress_div) {
+    this.title_el = title_el;
     this.div = div;
     this.progress_div = progress_div;
     this.progress_el = progress_div.querySelector('paper-progress');
 }
 
 View.prototype = {
+    setModel: function(model) {
+        this.model = model;
+
+        var view = this;
+        this.div.querySelector('.reload').addEventListener('click', model.reloadWithTool.bind(model));
+        this.div.querySelector('.enable').addEventListener('click', function(){
+            var isEnable = this.active;
+            var button = this;
+            model.setEnable(isEnable, function(){
+                if (isEnable) {
+                    button.className += ' red-circle';
+                } else {
+                    button.className = button.className.replace( /(?:^|\s)red-circle(?!\S)/g, '');
+                    view.refresh();
+                }
+            });
+        });
+
+        this.div.querySelector('.clear').addEventListener('click', function(){
+            model.clear();
+            view.refresh();
+        });   
+    },
+
     refresh: function() {
         var myself = this;
         function processReport(report) {
@@ -27,29 +52,31 @@ View.prototype = {
 
     show: function() {
         this.div_.style.display = 'block';
+        this.title_el.innerHTML = this.name();
     },
 
     hide: function() {
         this.div_.style.display = 'none';
+        this.title_el.innerHTML = '';
     },
 
-    showProgress: function(max) {
+    setTotalWork: function(max) {
         this.progress_div.style.display = 'block';
         this.progress_el.max = max;
         this.progress_el.value = 0;
     },
 
-    incrementProgress: function() {
-        this.progress_el.value++;
+    setWorked: function(value) {
+        this.progress_el.value = value;
     },
 
-    hideProgress: function() {
+    done: function() {
         this.progress_div.style.display = 'none';
     }
 }
 
-function ProfilerView(div, progress_div) {
-    View.call(this, div, progress_div);
+function ProfilerView(title_el, div, progress_div) {
+    View.call(this, title_el, div, progress_div);
     this.model_ = new ProfilerModel();
     var viewEl = document.querySelector('x-timeline-view');
     viewEl.innerHTML = "";
@@ -61,6 +88,10 @@ function ProfilerView(div, progress_div) {
 }
 
 ProfilerView.prototype = {
+    name: function() {
+        return "Profiler";
+    },
+
     showReport: function(report) {
         var data = [];
 
@@ -95,16 +126,49 @@ ProfilerView.prototype = {
 }
 ProfilerView.prototype.__proto__ = View.prototype;
 
-function HitsCounterView(div, progress_div, cm) {
-    View.call(this, div, progress_div);
+function HitsCounterView(title_el, div, progress_div, cm) {
+    View.call(this, title_el, div, progress_div);
     this.model_ = new HitsCounterModel();
-    this.cm_ = cm;
+    this.cm = CodeMirror.fromTextArea(document.getElementById('code-view'), {
+        mode: "javascript",
+        lineNumbers: true,
+        gutters: ["CodeMirror-linenumbers", "hits"],
+        readOnly: true
+    });
+
+    var head = document.head || document.getElementsByTagName('head')[0];
+    var style = document.createElement('style');
+    var css = generateMarkStyle({r: 251, g: 255, b: 178}, {r: 247, g: 139, b: 81}, 100);
+    style.type = 'text/css';
+    if (style.styleSheet){
+      style.styleSheet.cssText = css;
+    } else {
+      style.appendChild(document.createTextNode(css));
+    }
+    head.appendChild(style);
+
+    function generateMarkStyle(from, to, count) {
+        var css = '';
+        for (var i = 1; i <= count; ++i) {
+            var part = i / count;
+            var r = (to.r - from.r) * part + from.r;
+            var g = (to.g - from.g) * part + from.g;
+            var b = (to.b - from.b) * part + from.b;
+
+            css += '.mark-' + i + ' { background: rgb(' + Math.ceil(r) + ',' + Math.ceil(g) + ',' + Math.ceil(b) +'); }\n';
+        }
+        return css;
+    }
 }
 
 HitsCounterView.prototype = {
+    name: function() {
+        return "Hits Counter";
+    },
+
     show: function() {
         View.prototype.show.call(this);
-        this._cm.refresh();
+        this.cm.refresh();
     },
 
     showReport: function(reports) {
@@ -116,7 +180,7 @@ HitsCounterView.prototype = {
                 hits: loc - hits
             }
         */
-        var cm = this.cm_;
+        var cm = this.cm;
         var doc = cm.getDoc();
         doc.setValue('');
         doc.markClean();
@@ -125,7 +189,7 @@ HitsCounterView.prototype = {
     },
 
     showOneReport: function(report) {
-        var cm = this.cm_;
+        var cm = this.cm;
         var doc = cm.getDoc();
         var max_hits = 0;
         var report_hits = report.hits;
@@ -134,7 +198,8 @@ HitsCounterView.prototype = {
           if (report_hits[i].count > max_hits)
             max_hits = report_hits[i].count;
 
-        this.showProgress(progress.total);
+        this.setTotalWork(progress.total);
+        this.setWorked(0);
         doc.markClean();
         cm.clearGutter('hits');
         doc.setValue(unescape(report.source));
@@ -151,12 +216,11 @@ HitsCounterView.prototype = {
         var loc = hit.loc;
         var hits = hit.count;
         var s = Math.ceil(hits / max_hits * mark_count);
-        var doc = this.cm_.getDoc();
+        var doc = this.cm.getDoc();
         doc.markText({line: loc.start.line - 1, ch: loc.start.column}, {line: loc.end.line - 1, ch: loc.end.column}, {className: "mark-" + s});
-        progress.value++;
-        this.incrementProgress();
+        this.setWorked(progress.value++)
         if (progress.value === progress.total)
-            this.hideProgress();
+            this.done();
     },
 
     _makeGutter: function(line, hits, progress) {
@@ -165,11 +229,10 @@ HitsCounterView.prototype = {
           marker.innerHTML = hits.toString();
           return marker;
         }
-        this.cm_.setGutterMarker(parseInt(line) - 1, "hits", makeMarker(hits));
-        progress.value++;
-        this.incrementProgress();
+        this.cm.setGutterMarker(parseInt(line) - 1, "hits", makeMarker(hits));
+        this.setWorked(progress.value++)
         if (progress.value === progress.total)
-            this.hideProgress();
+            this.done();
     }
 }
 HitsCounterView.prototype.__proto__ = View.prototype;

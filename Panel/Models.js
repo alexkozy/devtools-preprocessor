@@ -5,6 +5,21 @@
 function Model() {}
 
 Model.prototype = {
+    setEnable: function(enabled, callback) {
+        this.tool.setEnable(enabled, callback);
+    },
+
+    clear: function(callback) {
+        this.tool.clear(callback);
+    },
+
+    reloadWithTool: function() {
+        chrome.devtools.inspectedWindow.reload({
+            ignoreCache: true,
+            preprocessingScript: this.tool.preprocessorWithLibs()
+        });
+    },
+
     getReport: function(callback) {
         var expr = this._getReport.toString() + '\ninjectedGetReport()';
         var self = this;
@@ -22,6 +37,7 @@ Model.prototype = {
 
 function ProfilerModel() {
     Model.call(this);
+    this.tool = new Profiler();
 }
 
 ProfilerModel.prototype = {
@@ -123,7 +139,9 @@ ProfilerModel.prototype = {
 }
 ProfilerModel.prototype.__proto__ = Model.prototype;
 
-function HitsCounterModel() {}
+function HitsCounterModel() {
+    this.tool = new HitsCounter();
+}
 
 HitsCounterModel.prototype = {
     _getReport: function injectedGetReport() {

@@ -33,9 +33,9 @@ Tool.prototype = {
 		return preprocessor_source;
 	},
 
-	setEnable: function(enabled) {
+	setEnable: function(enabled, callback) {
 		var expr = 'window.__toolEnabled = ' + (enabled ? 'true' : 'false') + ';';
-		evalAllFrames(expr);
+		evalAllFrames(expr, callback);
 	}
 }
 
@@ -245,9 +245,9 @@ Profiler.prototype = {
 		return ['esprima.js', 'estraverse.js', 'escodegen.browser.js', 'source-map.js'];
 	},
 
-	clear: function() {
+	clear: function(callback) {
 		var expr = 'window.__profileLast = -1;';
-		evalAllFrames(expr);
+		evalAllFrames(expr, callback);
 	}
 }
 Profiler.prototype.__proto__ = Tool.prototype;
@@ -341,9 +341,9 @@ HitsCounter.prototype = {
 		return ['esprima.js', 'estraverse.js', 'escodegen.browser.js'];
 	},
 
-	clear: function() {
+	clear: function(callback) {
 		var expr = 'window.__hits = new Int32Array(1024 * 1024);';
-		evalAllFrames(expr);
+		evalAllFrames(expr, callback);
 	}
 }
 HitsCounter.prototype.__proto__ = Tool.prototype;

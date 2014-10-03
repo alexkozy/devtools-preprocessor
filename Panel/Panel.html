@@ -149,7 +149,7 @@
                 this.reports = [];
               },
               fileClick : function(e, details, sender) {
-                var view = core.view('Hits Counter');
+                var view = core.HitsCounter;
                 view.showOneReport(sender.templateInstance.model.report);
               }
             });
@@ -157,7 +157,9 @@
         </polymer-element>
 
         <files-with-hits></files-with-hits>
-        <textarea id="code-view"></textarea>
+        <div id="code-view-style">
+          <textarea id="code-view"></textarea>
+        </div>
       </div>
 
     </div>
