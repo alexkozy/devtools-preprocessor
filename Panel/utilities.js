@@ -17,21 +17,24 @@ function evalAllFrames(expr, callback) {
 	}
 	function tryEval() {
 		if (receivedResources && receivedFrames) {
-			var urls = extractUrls(receivedFrames, receivedResources);
+			var uniqueFramesUrls = [];
+			receivedFrames.forEach(function(url){
+				if (uniqueFramesUrls.indexOf(url) === -1)
+					uniqueFramesUrls.push(url);
+			});
+			var urls = extractUrls(uniqueFramesUrls, receivedResources);
 			var results = [];
+			var withErrors = 0;
 			urls.forEach(function(url){
 		    	var segments = url.split('/');
 			    var origin = segments[0] + '//' + segments[1];
-			    var options = {
-        			frame: {
-            			url: url,
-            			securityOrigin: origin
-        			}
-    			}
-				chrome.devtools.inspectedWindow.eval(expr, options, resultReceived);
+			    chrome.devtools.inspectedWindow.eval(expr, {frameURL: url}, resultReceived);
 				function resultReceived(result){
-					results.push(result);
-					if (results.length === urls.length && callback)
+					if (result)
+						results.push(result);
+					else
+						withErrors++;
+					if (results.length + withErrors === urls.length && callback)
 						callback(results);
 				}
 			});

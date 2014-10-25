@@ -9,7 +9,6 @@ chrome.runtime.onMessage.addListener(
 				code: 'location.href',
 				allFrames: true
 			}, function (result) {
-				console.log('result', result);
 				sendResponse(result);
 			});
 			return true;
