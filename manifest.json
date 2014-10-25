@@ -1,6 +1,6 @@
 {
     "name": "Chrome Preprocessor Example",
-    "version": "0.1",
+    "version": "1.0",
     "description": "Simple profiler and code coverage example",
     "devtools_page": "chrome-preprocessor.html",
     "manifest_version": 2,
