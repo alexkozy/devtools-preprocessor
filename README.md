@@ -20,8 +20,13 @@ Extension uses next third party:
 - open [extensions tab](chrome://extensions) in chrome
 - check developer mode and load extension folder
 
+Install last release:
+- download *.crx for last release [here](https://github.com/ak239/devtools-preprocessor/releases)
+- open chrome://extensions tab
+- drag and drop crx file to tab
+
 ## Screenshots
 ### Profiler
-![](http://i.imgur.com/Begayyk.png)
+![](https://cloud.githubusercontent.com/assets/426418/4781152/904250e0-5c8c-11e4-9827-0e9ddffc3cb9.png)
 ### Hits Counter
-![](http://i.imgur.com/LxeamED.png)
+![](https://cloud.githubusercontent.com/assets/426418/4781164/fc3ed35e-5c8c-11e4-9396-4fc09aec267e.png)
