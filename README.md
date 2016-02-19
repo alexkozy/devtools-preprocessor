@@ -1,6 +1,8 @@
 devtools-preprocessor
 =====================
 
+##DevTools API for preprocessor was deprecated and removed.
+
 This DevTools Extension provide two tools based on [script preprocessor API](https://code.google.com/p/chromium/wiki/ScriptPreprocessor) that you can use to trace JS execution and to measuring hits count.
 
 - Profiler tool implements instrumentation profiler. Tool replaces all functions in script and injects code that captures timing information for each function. It is a useful tool to trace code execution and a rough estimate of time costs. Profiler generates source map for each processed source that allows you to navigate to original source code and, for example, set some breakpoints.
